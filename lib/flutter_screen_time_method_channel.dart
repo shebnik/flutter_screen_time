@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import 'flutter_screen_time_platform_interface.dart';
+import 'package:flutter_screen_time/flutter_screen_time_platform_interface.dart';
 
 /// An implementation of [FlutterScreenTimePlatform] that uses method channels.
 class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
@@ -11,7 +11,9 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
 
   @override
   Future<String?> getPlatformVersion() async {
-    final version = await methodChannel.invokeMethod<String>('getPlatformVersion');
+    final version = await methodChannel.invokeMethod<String>(
+      'getPlatformVersion',
+    );
     return version;
   }
 }

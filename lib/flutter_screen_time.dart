@@ -1,5 +1,4 @@
-
-import 'flutter_screen_time_platform_interface.dart';
+import 'package:flutter_screen_time/flutter_screen_time_platform_interface.dart';
 
 class FlutterScreenTime {
   Future<String?> getPlatformVersion() {
