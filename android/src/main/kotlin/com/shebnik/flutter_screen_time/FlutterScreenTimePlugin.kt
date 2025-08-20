@@ -111,6 +111,29 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 }
             }
 
+            MethodName.BLOCK_APPS -> {
+                val args = call.arguments as Map<*, *>
+                val bundleIds = args[Argument.BUNDLE_IDS] as List<*>?
+                val layoutName = args[Argument.BLOCK_OVERLAY_LAYOUT_NAME] as String?
+
+                val notificationTitle = args[Argument.NOTIFICATION_TITLE] as String?
+                val notificationBody = args[Argument.NOTIFICATION_BODY] as String?
+
+                val response = FlutterScreenTimeMethod.blockApps(
+                    context,
+                    bundleIds?.filterIsInstance<String>() ?: mutableListOf(),
+                    layoutName,
+                    notificationTitle,
+                    notificationBody
+                )
+
+                result.success(response)
+            }
+
+            MethodName.STOP_BLOCKING_APPS -> {
+                result.success(FlutterScreenTimeMethod.stopBlockingApps(context))
+            }
+
             else -> result.notImplemented()
         }
     }

@@ -2,6 +2,7 @@ package com.shebnik.flutter_screen_time
 
 import android.app.Activity
 import android.app.AppOpsManager
+import android.app.ForegroundServiceStartNotAllowedException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -22,6 +23,8 @@ import com.shebnik.flutter_screen_time.util.ApplicationInfoUtil
 import io.flutter.Log
 import java.io.ByteArrayOutputStream
 import androidx.core.graphics.createBitmap
+import com.shebnik.flutter_screen_time.const.Argument
+import com.shebnik.flutter_screen_time.service.BlockAppsService
 
 object FlutterScreenTimeMethod {
 
@@ -142,7 +145,7 @@ object FlutterScreenTimeMethod {
 
             if (ignoreSystemApps) {
                 val filtered =
-                    installedApplications.filter { app -> (app.flags and ApplicationInfo.FLAG_SYSTEM) == 0 }
+                    installedApplications.filter { app -> (app.flags and ApplicationInfo.FLAG_SYSTEM) == 0 && app.packageName != context.packageName }
                 apps.addAll(filtered)
             } else {
                 apps.addAll(installedApplications)
@@ -213,5 +216,65 @@ object FlutterScreenTimeMethod {
         drawable.setBounds(0, 0, canvas.width, canvas.height)
         drawable.draw(canvas)
         return bitmap
+    }
+
+    fun blockApps(
+        context: Context,
+        bundleIds: List<String>,
+        layoutName: String? = null,
+        notificationTitle: String? = null,
+        notificationBody: String? = null
+    ): Boolean {
+        if (bundleIds.isEmpty()) return false
+
+        try {
+            // Start BlockAppService
+            val intent = Intent(context, BlockAppsService::class.java).apply {
+                putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(bundleIds))
+
+                val callerPackageName = context.packageName
+                putExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, callerPackageName)
+                putExtra(
+                    Argument.BLOCK_OVERLAY_LAYOUT_NAME,
+                    layoutName ?: BlockAppsService.DEFAULT_LAYOUT_NAME
+                )
+
+                putExtra(Argument.NOTIFICATION_TITLE, notificationTitle)
+                putExtra(Argument.NOTIFICATION_BODY, notificationBody)
+            }
+
+            try {
+                context.startForegroundService(intent)
+            } catch (e: Exception) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (e is ForegroundServiceStartNotAllowedException) {
+                        Log.e("FlutterScreenTimeMethod", "Foreground service start not allowed", e)
+                    } else {
+                        Log.e("FlutterScreenTimeMethod", "Foreground service start not allowed", e)
+                    }
+                } else {
+                    Log.e("FlutterScreenTimeMethod", "Foreground service start not allowed", e)
+                }
+
+                return false
+            }
+
+            return true
+        } catch (e: Exception) {
+            Log.e("FlutterScreenTimeMethod", "Error starting block", e)
+            return false
+        }
+    }
+
+    fun stopBlockingApps(context: Context): Boolean {
+        return try {
+            val intent = Intent(context, BlockAppsService::class.java)
+            context.stopService(intent)
+            Log.d("FlutterScreenTimeMethod", "BlockAppService stopped successfully")
+            true
+        } catch (e: Exception) {
+            Log.e("FlutterScreenTimeMethod", "Error stopping block service", e)
+            false
+        }
     }
 }

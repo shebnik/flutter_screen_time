@@ -41,4 +41,30 @@ class FlutterScreenTime {
     }
     return categorized;
   }
+
+  Future<bool> blockApps({
+    List<String> bundleIds = const <String>[],
+    String? layoutName,
+    String? notificationTitle,
+    String? notificationBody,
+  }) {
+    return FlutterScreenTimePlatform.instance.blockApps(
+      bundleIds: bundleIds,
+      layoutName: layoutName,
+      notificationTitle: notificationTitle,
+      notificationBody: notificationBody,
+    );
+  }
+
+  Future<bool> stopBlockingApps() {
+    return FlutterScreenTimePlatform.instance.stopBlockingApps();
+  }
+
+  Future<bool> unblockApps({
+    List<String> bundleIds = const <String>[],
+  }) async {
+    return FlutterScreenTimePlatform.instance.unblockApps(
+      bundleIds: bundleIds,
+    );
+  }
 }

@@ -48,6 +48,7 @@ class _MyAppState extends State<MyApp> {
   Map<AppCategory, Set<InstalledApp>> selectedApps = {};
 
   bool isLoading = true;
+  bool isBlockingApps = false;
 
   @override
   void initState() {
@@ -121,6 +122,48 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  Future<bool> checkPermissions() async {
+    if (_permissionStatus.values.any(
+      (status) => status != PermissionStatus.approved,
+    )) {
+      for (final type in PermissionType.values.where(
+        (type) => _permissionStatus[type] != PermissionStatus.approved,
+      )) {
+        await requestPermission(type);
+      }
+    }
+
+    return _permissionStatus.values.every(
+      (status) => status == PermissionStatus.approved,
+    );
+  }
+
+  //
+  // ignore: avoid_positional_boolean_parameters
+  Future<void> blockApps(bool? value) async {
+    if (value == null) return;
+
+    if (!(await checkPermissions())) {
+      return;
+    }
+
+    final bundleIds = selectedApps.values
+        .expand((e) => e)
+        .map((e) => e.packageName)
+        .whereType<String>()
+        .toList();
+
+    if (isBlockingApps) {
+      await _flutterScreenTimePlugin.stopBlockingApps();
+    } else {
+      await _flutterScreenTimePlugin.blockApps(
+        bundleIds: bundleIds,
+      );
+    }
+
+    if (mounted) setState(() => isBlockingApps = value);
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -133,41 +176,52 @@ class _MyAppState extends State<MyApp> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Permissions:',
-                        style: Theme.of(context).textTheme.headlineLarge,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.refresh),
-                        onPressed: determinePermissions,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ..._permissionStatus.entries.map((entry) {
-                    return ListTile(
-                      title: Text(entry.key.name),
-                      subtitle: Text(entry.value.name),
-                      trailing: entry.value != PermissionStatus.approved
-                          ? ElevatedButton(
-                              onPressed: () => requestPermission(entry.key),
-                              child: const Text('Request'),
-                            )
-                          : null,
-                    );
-                  }),
+                  _currentPermissionStatus(),
                   const SizedBox(height: 16),
-                  _buildCategorizedAppsList(),
+                  _categorizedAppsList(),
+                  const SizedBox(height: 16),
+                  _blockApps(),
+                  const SizedBox(height: 16),
                 ],
               ),
       ),
     );
   }
 
-  Widget _buildCategorizedAppsList() {
+  Widget _currentPermissionStatus() {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Permissions:',
+              style: Theme.of(context).textTheme.headlineLarge,
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: determinePermissions,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ..._permissionStatus.entries.map((entry) {
+          return ListTile(
+            title: Text(entry.key.name),
+            subtitle: Text(entry.value.name),
+            trailing: entry.value != PermissionStatus.approved
+                ? ElevatedButton(
+                    onPressed: () => requestPermission(entry.key),
+                    child: const Text('Request'),
+                  )
+                : null,
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _categorizedAppsList() {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -214,6 +268,14 @@ class _MyAppState extends State<MyApp> {
               .toList(),
         );
       },
+    );
+  }
+
+  Widget _blockApps() {
+    return CheckboxListTile(
+      title: const Text('Block Selected Apps'),
+      value: isBlockingApps,
+      onChanged: blockApps,
     );
   }
 }

@@ -31,4 +31,18 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
   Future<List<InstalledApp>> installedApps({
     bool ignoreSystemApps = true,
   }) => throw UnimplementedError('installedApps() has not been implemented.');
+
+  Future<bool> blockApps({
+    List<String> bundleIds = const <String>[],
+    String? layoutName,
+    String? notificationTitle,
+    String? notificationBody,
+  }) => throw UnimplementedError('blockApps() has not been implemented.');
+
+  Future<bool> stopBlockingApps() =>
+      throw UnimplementedError('stopBlockingApps() has not been implemented.');
+
+  Future<bool> unblockApps({
+    List<String> bundleIds = const <String>[],
+  }) => throw UnimplementedError('unblockApps() has not been implemented.');
 }

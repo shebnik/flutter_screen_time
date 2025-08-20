@@ -6,4 +6,5 @@ object MethodName {
     const val INSTALLED_APPS = "installedApps"
     const val BLOCK_APPS = "blockApps"
     const val UNBLOCK_APPS = "unblockApps"
+    const val STOP_BLOCKING_APPS = "stopBlockingApps"
 }

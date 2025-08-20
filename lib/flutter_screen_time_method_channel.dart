@@ -61,6 +61,48 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
     });
   }
 
+  @override
+  Future<bool> blockApps({
+    List<String> bundleIds = const <String>[],
+    String? layoutName,
+    String? notificationTitle,
+    String? notificationBody,
+  }) async {
+    return await methodChannel.invokeMethod<bool>(
+          MethodName.blockApps,
+          {
+            Argument.bundleIds: bundleIds,
+            Argument.blockOverlayLayoutName: layoutName,
+            Argument.notificationTitle: notificationTitle,
+            Argument.notificationBody: notificationBody,
+          },
+        ) ??
+        false;
+  }
+
+  @override
+  Future<bool> stopBlockingApps() async {
+    return await methodChannel.invokeMethod<bool>(
+          MethodName.stopBlockingApps,
+        ) ??
+        false;
+  }
+
+  @override
+  Future<bool> unblockApps({
+    List<String> bundleIds = const <String>[],
+  }) async {
+    final arguments = <Object?, Object?>{
+      Argument.bundleIds: bundleIds,
+    };
+
+    return await methodChannel.invokeMethod<bool>(
+          MethodName.unblockApps,
+          arguments,
+        ) ??
+        false;
+  }
+
   Future<Map<String, dynamic>> _convertToStringDynamicMap(
     Map<Object?, Object?>? result,
   ) async {
