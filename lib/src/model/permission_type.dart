@@ -1,0 +1,4 @@
+enum PermissionType {
+  appUsage,
+  drawOverlay,
+}

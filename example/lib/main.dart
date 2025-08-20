@@ -16,30 +16,60 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
   final _flutterScreenTimePlugin = FlutterScreenTime();
+
+  final Map<PermissionType, PermissionStatus> _permissionStatus =
+      Map.fromEntries(
+        PermissionType.values.map(
+          (type) => MapEntry(type, PermissionStatus.notDetermined),
+        ),
+      );
+
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    initPlatformState();
+    determinePermissions();
   }
 
-  Future<void> initPlatformState() async {
-    String platformVersion;
-    try {
-      platformVersion =
-          await _flutterScreenTimePlugin.getPlatformVersion() ??
-          'Unknown platform version';
-    } on PlatformException {
-      platformVersion = 'Failed to get platform version.';
+  Future<void> determinePermissions() async {
+    for (final type in PermissionType.values) {
+      try {
+        _permissionStatus[type] = await _flutterScreenTimePlugin
+            .permissionStatus(
+              permissionType: type,
+            );
+      } on PlatformException catch (e) {
+        debugPrintStack(
+          label: e.toString(),
+          stackTrace: StackTrace.current,
+        );
+      }
     }
 
     if (!mounted) return;
 
     setState(() {
-      _platformVersion = platformVersion;
+      isLoading = false;
     });
+  }
+
+  Future<void> requestPermission(PermissionType type) async {
+    final result = await _flutterScreenTimePlugin.requestPermission(
+      permissionType: type,
+    );
+    debugPrint(
+      'Permission for ${type.name} was ${result ? 'granted' : 'denied'}',
+    );
+
+    if (mounted) {
+      setState(() {
+        _permissionStatus[type] = result
+            ? PermissionStatus.approved
+            : PermissionStatus.denied;
+      });
+    }
   }
 
   @override
@@ -47,11 +77,41 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Plugin example app'),
+          title: const Text('FlutterScreenTime Plugin Example'),
         ),
-        body: Center(
-          child: Text('Running on: $_platformVersion\n'),
-        ),
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Permissions:',
+                        style: Theme.of(context).textTheme.headlineLarge,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh),
+                        onPressed: determinePermissions,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ..._permissionStatus.entries.map((entry) {
+                    return ListTile(
+                      title: Text(entry.key.name),
+                      subtitle: Text(entry.value.name),
+                      trailing: entry.value != PermissionStatus.approved
+                          ? ElevatedButton(
+                              onPressed: () => requestPermission(entry.key),
+                              child: const Text('Request'),
+                            )
+                          : null,
+                    );
+                  }),
+                ],
+              ),
       ),
     );
   }

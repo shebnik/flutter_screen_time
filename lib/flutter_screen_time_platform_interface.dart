@@ -1,4 +1,6 @@
 import 'package:flutter_screen_time/flutter_screen_time_method_channel.dart';
+import 'package:flutter_screen_time/src/model/permission_status.dart';
+import 'package:flutter_screen_time/src/model/permission_type.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 abstract class FlutterScreenTimePlatform extends PlatformInterface {
@@ -15,7 +17,13 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<String?> getPlatformVersion() {
-    throw UnimplementedError('platformVersion() has not been implemented.');
-  }
+  Future<PermissionStatus> permissionStatus({
+    PermissionType permissionType = PermissionType.appUsage,
+  }) =>
+      throw UnimplementedError('permissionStatus() has not been implemented.');
+
+  Future<bool> requestPermission({
+    PermissionType permissionType = PermissionType.appUsage,
+  }) =>
+      throw UnimplementedError('requestPermission() has not been implemented.');
 }
