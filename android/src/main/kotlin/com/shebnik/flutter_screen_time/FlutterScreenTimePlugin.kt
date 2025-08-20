@@ -17,6 +17,10 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.PluginRegistry
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** FlutterScreenTimePlugin */
 class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
@@ -91,6 +95,19 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     pendingResult = null
                     pendingPermissionType = null
                     result.success(false)
+                }
+            }
+
+            MethodName.INSTALLED_APPS -> {
+                val args = call.arguments as Map<*, *>
+                val ignoreSystemApps = args[Argument.IGNORE_SYSTEM_APPS] as Boolean? ?: true
+
+                CoroutineScope(Dispatchers.IO).launch {
+                    val installedApps =
+                        FlutterScreenTimeMethod.installedApps(context, ignoreSystemApps)
+                    withContext(Dispatchers.Main) {
+                        result.success(installedApps)
+                    }
                 }
             }
 

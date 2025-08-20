@@ -4,13 +4,24 @@ import android.app.Activity
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.provider.Settings
+import android.util.Base64
 import androidx.core.net.toUri
 import com.shebnik.flutter_screen_time.const.FlutterScreenTimePermissionStatus
 import com.shebnik.flutter_screen_time.const.FlutterScreenTimePermissionType
 import com.shebnik.flutter_screen_time.const.PermissionRequestCode
+import com.shebnik.flutter_screen_time.const.Field
+import com.shebnik.flutter_screen_time.util.ApplicationInfoUtil
 import io.flutter.Log
+import java.io.ByteArrayOutputStream
+import androidx.core.graphics.createBitmap
 
 object FlutterScreenTimeMethod {
 
@@ -73,8 +84,7 @@ object FlutterScreenTimeMethod {
                         "package:${activity.packageName}".toUri()
                     )
                     activity.startActivityForResult(
-                        intent,
-                        PermissionRequestCode.REQUEST_CODE_APP_USAGE
+                        intent, PermissionRequestCode.REQUEST_CODE_APP_USAGE
                     )
                     true
                 } catch (exception: Exception) {
@@ -91,8 +101,7 @@ object FlutterScreenTimeMethod {
                             "package:${activity.packageName}".toUri()
                         )
                         activity.startActivityForResult(
-                            intent,
-                            PermissionRequestCode.REQUEST_CODE_DRAW_OVERLAY
+                            intent, PermissionRequestCode.REQUEST_CODE_DRAW_OVERLAY
                         )
                         true
                     } else {
@@ -110,10 +119,99 @@ object FlutterScreenTimeMethod {
     }
 
     fun handlePermissionResult(
-        context: Context,
-        type: FlutterScreenTimePermissionType
+        context: Context, type: FlutterScreenTimePermissionType
     ): Boolean {
         val status = permissionStatus(context, type)
         return status == FlutterScreenTimePermissionStatus.APPROVED
+    }
+
+    fun installedApps(context: Context, ignoreSystemApps: Boolean = true): Map<String, Any> {
+        try {
+            val packageManager = context.packageManager
+            val apps = ArrayList<ApplicationInfo>()
+
+            val installedApplications = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getInstalledApplications(
+                    PackageManager.ApplicationInfoFlags.of(
+                        PackageManager.GET_META_DATA.toLong()
+                    )
+                )
+            } else {
+                @Suppress("DEPRECATION") packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+            }
+
+            if (ignoreSystemApps) {
+                val filtered =
+                    installedApplications.filter { app -> (app.flags and ApplicationInfo.FLAG_SYSTEM) == 0 }
+                apps.addAll(filtered)
+            } else {
+                apps.addAll(installedApplications)
+            }
+
+            val appMap = ArrayList<MutableMap<String, Any?>>()
+
+            for (app in apps) {
+                val appCategory = ApplicationInfoUtil.category(app.category)
+                val packageInfo = packageManager.getPackageInfo(app.packageName, 0)
+                val appIcon = appIconAsBase64(
+                    packageManager, app.packageName
+                )
+
+                val data = mutableMapOf(
+                    Field.appName to app.loadLabel(packageManager),
+                    Field.packageName to app.packageName,
+                    Field.enabled to app.enabled,
+                    Field.category to appCategory,
+                    Field.versionName to packageInfo.versionName,
+                    Field.versionCode to packageInfo.versionCode,
+                )
+
+                if (appIcon != null) {
+                    data[Field.appIcon] = appIcon
+                }
+
+                appMap.add(data)
+            }
+
+            return mutableMapOf(
+                Field.status to true,
+                Field.data to appMap,
+            )
+        } catch (exception: Exception) {
+            exception.localizedMessage?.let { Log.e("installedApps", it) }
+
+            return mutableMapOf(
+                Field.status to false,
+                Field.data to ArrayList<MutableMap<String, Any?>>(),
+            )
+        }
+    }
+
+    fun appIconAsBase64(
+        packageManager: PackageManager,
+        packageName: String,
+    ): String? {
+        return try {
+            val drawable: Drawable = packageManager.getApplicationIcon(packageName)
+            val bitmap = drawableToBitmap(drawable)
+            val outputStream = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+            val byteArray = outputStream.toByteArray()
+            Base64.encodeToString(byteArray, Base64.DEFAULT)  // Convert to Base64
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun drawableToBitmap(drawable: Drawable): Bitmap {
+        if (drawable is BitmapDrawable) {
+            return drawable.bitmap
+        }
+        val bitmap = createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
     }
 }

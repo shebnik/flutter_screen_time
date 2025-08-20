@@ -1,11 +1,29 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screen_time/flutter_screen_time.dart';
 
 void main() {
-  runApp(const MyApp());
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      FlutterError.onError = FlutterError.dumpErrorToConsole;
+      PlatformDispatcher.instance.onError = (error, stackTrace) {
+        debugPrint('Platform error: $error');
+        debugPrint('StackTrace: $stackTrace');
+        return true;
+      };
+
+      runApp(const MyApp());
+    },
+    (error, stackTrace) {
+      debugPrint('Error: $error');
+      debugPrint('StackTrace: $stackTrace');
+    },
+  );
 }
 
 class MyApp extends StatefulWidget {
@@ -25,12 +43,23 @@ class _MyAppState extends State<MyApp> {
         ),
       );
 
+  Map<AppCategory, List<InstalledApp>> categorizedApps = {};
+  List<AppCategory> categories = [];
+  Map<AppCategory, Set<InstalledApp>> selectedApps = {};
+
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    determinePermissions();
+    load();
+  }
+
+  Future<void> load() async {
+    await determinePermissions();
+    await loadAppsList();
+
+    if (mounted) setState(() => isLoading = false);
   }
 
   Future<void> determinePermissions() async {
@@ -47,18 +76,38 @@ class _MyAppState extends State<MyApp> {
         );
       }
     }
+  }
 
-    if (!mounted) return;
-
-    setState(() {
-      isLoading = false;
-    });
+  Future<void> loadAppsList() async {
+    try {
+      final apps = await _flutterScreenTimePlugin.installedApps();
+      debugPrint('Installed apps: ${apps.length}');
+      categorizedApps = _flutterScreenTimePlugin.categorizeApps(apps);
+      categories = categorizedApps.keys.toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
+    } on PlatformException catch (e) {
+      debugPrintStack(
+        label: e.toString(),
+        stackTrace: StackTrace.current,
+      );
+    }
   }
 
   Future<void> requestPermission(PermissionType type) async {
-    final result = await _flutterScreenTimePlugin.requestPermission(
-      permissionType: type,
-    );
+    bool result;
+
+    try {
+      result = await _flutterScreenTimePlugin.requestPermission(
+        permissionType: type,
+      );
+    } on PlatformException catch (e) {
+      debugPrintStack(
+        label: e.toString(),
+        stackTrace: StackTrace.current,
+      );
+      return;
+    }
+
     debugPrint(
       'Permission for ${type.name} was ${result ? 'granted' : 'denied'}',
     );
@@ -110,9 +159,61 @@ class _MyAppState extends State<MyApp> {
                           : null,
                     );
                   }),
+                  const SizedBox(height: 16),
+                  _buildCategorizedAppsList(),
                 ],
               ),
       ),
+    );
+  }
+
+  Widget _buildCategorizedAppsList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: categories.length,
+      itemBuilder: (context, index) {
+        final category = categories[index];
+        final appsInCategory = categorizedApps[category]!;
+
+        return ExpansionTile(
+          title: Text(category.name),
+          subtitle: Text('${appsInCategory.length} apps'),
+          children: appsInCategory
+              .map(
+                (app) => CheckboxListTile(
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: selectedApps[category]?.contains(app) ?? false,
+                  onChanged: (isSelected) {
+                    setState(() {
+                      if (true == isSelected) {
+                        selectedApps.putIfAbsent(
+                          category,
+                          () => <InstalledApp>{},
+                        );
+                        selectedApps[category]!.add(app);
+                      } else {
+                        selectedApps[category]?.remove(app);
+                      }
+                    });
+                  },
+                  title: Row(
+                    spacing: 8,
+                    children: [
+                      if (app.iconInBytes != null)
+                        Image.memory(
+                          app.iconInBytes!,
+                          width: 50,
+                          height: 50,
+                        ),
+                      Flexible(child: Text(app.appName ?? 'App')),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
     );
   }
 }

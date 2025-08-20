@@ -1,4 +1,5 @@
 import 'package:flutter_screen_time/flutter_screen_time_method_channel.dart';
+import 'package:flutter_screen_time/src/model/installed_app.dart';
 import 'package:flutter_screen_time/src/model/permission_status.dart';
 import 'package:flutter_screen_time/src/model/permission_type.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
@@ -26,4 +27,8 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
     PermissionType permissionType = PermissionType.appUsage,
   }) =>
       throw UnimplementedError('requestPermission() has not been implemented.');
+
+  Future<List<InstalledApp>> installedApps({
+    bool ignoreSystemApps = true,
+  }) => throw UnimplementedError('installedApps() has not been implemented.');
 }
