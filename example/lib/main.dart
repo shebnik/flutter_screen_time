@@ -122,20 +122,31 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Future<bool> checkPermissions() async {
-    if (_permissionStatus.values.any(
-      (status) => status != PermissionStatus.approved,
-    )) {
-      for (final type in PermissionType.values.where(
-        (type) => _permissionStatus[type] != PermissionStatus.approved,
-      )) {
-        await requestPermission(type);
-      }
+  Future<bool> checkAppBlockingPermissions() async {
+    for (final type
+        in _permissionStatus.entries
+            .where(
+              (e) => [
+                PermissionType.appUsage,
+                PermissionType.drawOverlay,
+                PermissionType.notification,
+              ].contains(e.key),
+            )
+            .where((e) => e.value != PermissionStatus.approved)) {
+      await requestPermission(type.key);
     }
 
-    return _permissionStatus.values.every(
-      (status) => status == PermissionStatus.approved,
-    );
+    return _permissionStatus.entries
+        .where(
+          (e) => [
+            PermissionType.appUsage,
+            PermissionType.drawOverlay,
+            PermissionType.notification,
+          ].contains(e.key),
+        )
+        .every(
+          (e) => e.value == PermissionStatus.approved,
+        );
   }
 
   //
@@ -143,7 +154,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> blockApps(bool? value) async {
     if (value == null) return;
 
-    if (!(await checkPermissions())) {
+    if (!(await checkAppBlockingPermissions())) {
       return;
     }
 

@@ -1,5 +1,6 @@
 package com.shebnik.flutter_screen_time
 
+import android.Manifest
 import android.app.Activity
 import android.app.AppOpsManager
 import android.app.ForegroundServiceStartNotAllowedException
@@ -14,9 +15,10 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import android.provider.Settings
 import android.util.Base64
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import com.shebnik.flutter_screen_time.const.FlutterScreenTimePermissionStatus
-import com.shebnik.flutter_screen_time.const.FlutterScreenTimePermissionType
+import com.shebnik.flutter_screen_time.const.PermissionStatus
+import com.shebnik.flutter_screen_time.const.PermissionType
 import com.shebnik.flutter_screen_time.const.PermissionRequestCode
 import com.shebnik.flutter_screen_time.const.Field
 import com.shebnik.flutter_screen_time.util.ApplicationInfoUtil
@@ -29,11 +31,10 @@ import com.shebnik.flutter_screen_time.service.BlockAppsService
 object FlutterScreenTimeMethod {
 
     fun permissionStatus(
-        context: Context,
-        type: FlutterScreenTimePermissionType = FlutterScreenTimePermissionType.APP_USAGE
-    ): FlutterScreenTimePermissionStatus {
+        context: Context, type: PermissionType = PermissionType.APP_USAGE
+    ): PermissionStatus {
         when (type) {
-            FlutterScreenTimePermissionType.APP_USAGE -> {
+            PermissionType.APP_USAGE -> {
                 val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
                 val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     appOps.unsafeCheckOpNoThrow(
@@ -51,25 +52,59 @@ object FlutterScreenTimeMethod {
 
                 return when (mode) {
                     AppOpsManager.MODE_ALLOWED -> {
-                        FlutterScreenTimePermissionStatus.APPROVED
+                        PermissionStatus.APPROVED
                     }
 
                     AppOpsManager.MODE_IGNORED -> {
-                        FlutterScreenTimePermissionStatus.DENIED
+                        PermissionStatus.DENIED
                     }
 
                     else -> {
-                        FlutterScreenTimePermissionStatus.NOT_DETERMINED
+                        PermissionStatus.NOT_DETERMINED
                     }
                 }
             }
 
-            FlutterScreenTimePermissionType.DRAW_OVERLAY -> {
+            PermissionType.DRAW_OVERLAY -> {
                 val result = Settings.canDrawOverlays(context)
                 return if (result) {
-                    FlutterScreenTimePermissionStatus.APPROVED
+                    PermissionStatus.APPROVED
                 } else {
-                    FlutterScreenTimePermissionStatus.DENIED
+                    PermissionStatus.DENIED
+                }
+            }
+
+
+            PermissionType.NOTIFICATION -> {
+                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val permission = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.POST_NOTIFICATIONS
+                    )
+                    when (permission) {
+                        PackageManager.PERMISSION_GRANTED -> {
+                            PermissionStatus.APPROVED
+                        }
+
+                        PackageManager.PERMISSION_DENIED -> {
+                            PermissionStatus.DENIED
+                        }
+
+                        else -> {
+                            PermissionStatus.NOT_DETERMINED
+                        }
+                    }
+                } else {
+                    PermissionStatus.APPROVED
+                }
+            }
+
+            PermissionType.ACCESSIBILITY_SETTINGS -> {
+                val am =
+                    context.getSystemService(Context.ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
+                return if (am.isEnabled) {
+                    PermissionStatus.APPROVED
+                } else {
+                    PermissionStatus.DENIED
                 }
             }
         }
@@ -77,14 +112,14 @@ object FlutterScreenTimeMethod {
 
     fun requestPermission(
         activity: Activity,
-        type: FlutterScreenTimePermissionType = FlutterScreenTimePermissionType.APP_USAGE,
+        type: PermissionType = PermissionType.APP_USAGE,
     ): Boolean {
+        val packageUri = "package:${activity.packageName}".toUri()
         return when (type) {
-            FlutterScreenTimePermissionType.APP_USAGE -> {
+            PermissionType.APP_USAGE -> {
                 try {
                     val intent = Intent(
-                        Settings.ACTION_USAGE_ACCESS_SETTINGS,
-                        "package:${activity.packageName}".toUri()
+                        Settings.ACTION_USAGE_ACCESS_SETTINGS, packageUri
                     )
                     activity.startActivityForResult(
                         intent, PermissionRequestCode.REQUEST_CODE_APP_USAGE
@@ -96,12 +131,11 @@ object FlutterScreenTimeMethod {
                 }
             }
 
-            FlutterScreenTimePermissionType.DRAW_OVERLAY -> {
+            PermissionType.DRAW_OVERLAY -> {
                 try {
                     if (!Settings.canDrawOverlays(activity)) {
                         val intent = Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            "package:${activity.packageName}".toUri()
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION, packageUri
                         )
                         activity.startActivityForResult(
                             intent, PermissionRequestCode.REQUEST_CODE_DRAW_OVERLAY
@@ -118,14 +152,55 @@ object FlutterScreenTimeMethod {
                     false
                 }
             }
+
+            PermissionType.NOTIFICATION -> {
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        val intent = Intent(
+                            Settings.ACTION_APP_NOTIFICATION_SETTINGS, packageUri
+                        ).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        activity.startActivityForResult(
+                            intent, PermissionRequestCode.REQUEST_CODE_NOTIFICATION
+                        )
+                        true
+                    } else {
+                        false // Notification permission not needed for Android < 13
+                    }
+                } catch (exception: Exception) {
+                    exception.localizedMessage?.let { Log.e("requestPermission NOTIFICATION", it) }
+                    false
+                }
+            }
+
+            PermissionType.ACCESSIBILITY_SETTINGS -> {
+                try {
+                    val intent = Intent(
+                        Settings.ACTION_ACCESSIBILITY_SETTINGS
+                    )
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    activity.startActivityForResult(
+                        intent, PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_SETTINGS
+                    )
+                    true
+                } catch (e: Exception) {
+                    e.localizedMessage?.let {
+                        Log.e(
+                            "requestPermission ACCESSIBILITY_SETTINGS", it
+                        )
+                    }
+                    false
+                }
+            }
         }
     }
 
     fun handlePermissionResult(
-        context: Context, type: FlutterScreenTimePermissionType
+        context: Context, type: PermissionType
     ): Boolean {
         val status = permissionStatus(context, type)
-        return status == FlutterScreenTimePermissionStatus.APPROVED
+        return status == PermissionStatus.APPROVED
     }
 
     fun installedApps(context: Context, ignoreSystemApps: Boolean = true): Map<String, Any> {

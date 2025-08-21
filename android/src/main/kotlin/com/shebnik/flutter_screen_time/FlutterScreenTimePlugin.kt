@@ -4,7 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import com.shebnik.flutter_screen_time.const.Argument
-import com.shebnik.flutter_screen_time.const.FlutterScreenTimePermissionType
+import com.shebnik.flutter_screen_time.const.PermissionType
 import com.shebnik.flutter_screen_time.const.MethodName
 import com.shebnik.flutter_screen_time.const.PermissionRequestCode
 import com.shebnik.flutter_screen_time.util.EnumExtension.toCamelCase
@@ -29,7 +29,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     private lateinit var context: Context
     private var activity: Activity? = null
     private var pendingResult: Result? = null
-    private var pendingPermissionType: FlutterScreenTimePermissionType? = null
+    private var pendingPermissionType: PermissionType? = null
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "flutter_screen_time")
@@ -63,7 +63,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
                 val response = FlutterScreenTimeMethod.permissionStatus(
                     context,
-                    FlutterScreenTimePermissionType.valueOf(permissionType.toEnumFormat())
+                    PermissionType.valueOf(permissionType.toEnumFormat())
                 )
 
                 result.success(response.name.toCamelCase())
@@ -79,7 +79,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val args = call.arguments as Map<*, *>
                 val permissionType = args[Argument.PERMISSION_TYPE] as String
                 val enumPermissionType =
-                    FlutterScreenTimePermissionType.valueOf(permissionType.toEnumFormat())
+                    PermissionType.valueOf(permissionType.toEnumFormat())
 
                 // Store pending result and permission type
                 pendingResult = result
@@ -140,8 +140,10 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         val permissionType = when (requestCode) {
-            PermissionRequestCode.REQUEST_CODE_APP_USAGE -> FlutterScreenTimePermissionType.APP_USAGE
-            PermissionRequestCode.REQUEST_CODE_DRAW_OVERLAY -> FlutterScreenTimePermissionType.DRAW_OVERLAY
+            PermissionRequestCode.REQUEST_CODE_APP_USAGE -> PermissionType.APP_USAGE
+            PermissionRequestCode.REQUEST_CODE_DRAW_OVERLAY -> PermissionType.DRAW_OVERLAY
+            PermissionRequestCode.REQUEST_CODE_NOTIFICATION -> PermissionType.NOTIFICATION
+            PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_SETTINGS -> PermissionType.ACCESSIBILITY_SETTINGS
             else -> return false
         }
 
