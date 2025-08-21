@@ -23,3 +23,6 @@ flutter:
       android:
         package: com.shebnik.flutter_screen_time
         pluginClass: FlutterScreenTimePlugin
+      ios:
+        pluginClass: FlutterScreenTimePlugin
+      
