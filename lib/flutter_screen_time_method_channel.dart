@@ -89,16 +89,39 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   }
 
   @override
-  Future<bool> unblockApps({
-    List<String> bundleIds = const <String>[],
+  Future<bool> blockWebDomains({
+    required List<String> webDomains,
+    String? layoutName,
+    String? notificationTitle,
+    String? notificationBody,
   }) async {
-    final arguments = <Object?, Object?>{
-      Argument.bundleIds: bundleIds,
-    };
-
     return await methodChannel.invokeMethod<bool>(
-          MethodName.unblockApps,
-          arguments,
+          MethodName.blockWebDomains,
+          {
+            Argument.webDomains: webDomains,
+            Argument.blockOverlayLayoutName: layoutName,
+            Argument.notificationTitle: notificationTitle,
+            Argument.notificationBody: notificationBody,
+          },
+        ) ??
+        false;
+  }
+
+  @override
+  Future<bool> stopBlockingWebDomains() async {
+    return await methodChannel.invokeMethod<bool>(
+          MethodName.stopBlockingWebDomains,
+        ) ??
+        false;
+  }
+
+  @override
+  Future<bool> updateBlockedWebDomains(List<String> webDomains) async {
+    return await methodChannel.invokeMethod<bool>(
+          MethodName.updateBlockedWebDomains,
+          {
+            Argument.webDomains: webDomains,
+          },
         ) ??
         false;
   }

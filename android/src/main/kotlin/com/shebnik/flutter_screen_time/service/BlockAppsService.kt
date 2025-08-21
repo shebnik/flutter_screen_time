@@ -37,17 +37,18 @@ class BlockAppsService : Service() {
         const val NOTIFICATION_ID = 1001
         const val CHANNEL_ID = "block_apps_service_channel"
         const val MONITORING_INTERVAL = 1000L // 1 second
+        const val TAG = "BlockAppsService"
     }
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
-        Log.d("BlockAppsService", "Service created")
+        Log.d(TAG, "Service created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d("BlockAppsService", "Service started")
+        Log.d(TAG, "Service started")
 
         // Extract data from intent
         intent?.let {
@@ -62,7 +63,7 @@ class BlockAppsService : Service() {
                 ?: "Monitoring ${blockedApps.size} apps"
         }
 
-        Log.d("BlockAppsService", "Blocked apps: $blockedApps")
+        Log.d(TAG, "Blocked apps: $blockedApps")
 
         // Start foreground with notification
         startForeground(NOTIFICATION_ID, createNotification())
@@ -77,7 +78,7 @@ class BlockAppsService : Service() {
         super.onDestroy()
         stopAppMonitoring()
         hideOverlay()
-        Log.d("BlockAppsService", "Service destroyed")
+        Log.d(TAG, "Service destroyed")
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -141,14 +142,14 @@ class BlockAppsService : Service() {
 
             foregroundApp?.let { packageName ->
                 if (blockedApps.contains(packageName)) {
-                    Log.d("BlockAppsService", "Blocked app detected: $packageName")
+                    Log.d(TAG, "Blocked app detected: $packageName")
                     showOverlay()
                 } else {
                     hideOverlay()
                 }
             }
         } catch (e: Exception) {
-            Log.e("BlockAppsService", "Error checking foreground app", e)
+            Log.e(TAG, "Error checking foreground app", e)
         }
     }
 
@@ -179,10 +180,10 @@ class BlockAppsService : Service() {
             }
 
             windowManager?.addView(overlayView, params)
-            Log.d("BlockAppsService", "Overlay shown")
+            Log.d(TAG, "Overlay shown")
 
         } catch (e: Exception) {
-            Log.e("BlockAppsService", "Error showing overlay", e)
+            Log.e(TAG, "Error showing overlay", e)
         }
     }
 
@@ -191,9 +192,9 @@ class BlockAppsService : Service() {
             try {
                 windowManager?.removeView(view)
                 overlayView = null
-                Log.d("BlockAppsService", "Overlay hidden")
+                Log.d(TAG, "Overlay hidden")
             } catch (e: Exception) {
-                Log.e("BlockAppsService", "Error hiding overlay", e)
+                Log.e(TAG, "Error hiding overlay", e)
             }
         }
     }
@@ -208,7 +209,7 @@ class BlockAppsService : Service() {
 
             resources.getIdentifier(layoutName, "layout", callerPackageName)
         } catch (e: Exception) {
-            Log.e("BlockAppsService", "Error getting layout resource", e)
+            Log.e(TAG, "Error getting layout resource", e)
             0
         }
     }

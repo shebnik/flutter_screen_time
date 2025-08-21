@@ -60,11 +60,27 @@ class FlutterScreenTime {
     return FlutterScreenTimePlatform.instance.stopBlockingApps();
   }
 
-  Future<bool> unblockApps({
-    List<String> bundleIds = const <String>[],
-  }) async {
-    return FlutterScreenTimePlatform.instance.unblockApps(
-      bundleIds: bundleIds,
+  Future<bool> blockWebDomains({
+    required List<String> webDomains,
+    String? layoutName,
+    String? notificationTitle,
+    String? notificationBody,
+  }) {
+    return FlutterScreenTimePlatform.instance.blockWebDomains(
+      webDomains: webDomains,
+      layoutName: layoutName,
+      notificationTitle: notificationTitle,
+      notificationBody: notificationBody,
+    );
+  }
+
+  Future<bool> stopBlockingWebDomains() {
+    return FlutterScreenTimePlatform.instance.stopBlockingWebDomains();
+  }
+
+  Future<bool> updateBlockedWebDomains(List<String> webDomains) {
+    return FlutterScreenTimePlatform.instance.updateBlockedWebDomains(
+      webDomains,
     );
   }
 }

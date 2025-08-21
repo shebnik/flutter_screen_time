@@ -42,7 +42,19 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
   Future<bool> stopBlockingApps() =>
       throw UnimplementedError('stopBlockingApps() has not been implemented.');
 
-  Future<bool> unblockApps({
-    List<String> bundleIds = const <String>[],
-  }) => throw UnimplementedError('unblockApps() has not been implemented.');
+  Future<bool> blockWebDomains({
+    required List<String> webDomains,
+    String? layoutName,
+    String? notificationTitle,
+    String? notificationBody,
+  }) => throw UnimplementedError('blockWebDomains() has not been implemented.');
+
+  Future<bool> stopBlockingWebDomains() => throw UnimplementedError(
+    'stopBlockingWebDomains() has not been implemented.',
+  );
+
+  Future<bool> updateBlockedWebDomains(List<String> webDomains) =>
+      throw UnimplementedError(
+        'updateBlockedWebDomains() has not been implemented.',
+      );
 }

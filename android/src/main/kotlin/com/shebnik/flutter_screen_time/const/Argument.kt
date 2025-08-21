@@ -8,4 +8,5 @@ object Argument {
     const val BUNDLE_IDS = "bundleIds"
     const val NOTIFICATION_TITLE = "notificationTitle"
     const val NOTIFICATION_BODY = "notificationBody"
+    const val WEB_DOMAINS = "webDomains"
 }

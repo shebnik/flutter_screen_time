@@ -1,6 +1,7 @@
 package com.shebnik.flutter_screen_time
 
 import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.app.AppOpsManager
 import android.app.ForegroundServiceStartNotAllowedException
@@ -8,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
@@ -15,18 +17,22 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import android.provider.Settings
 import android.util.Base64
+import android.util.Log
+import android.view.accessibility.AccessibilityManager
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
+import com.shebnik.flutter_screen_time.*
+import com.shebnik.flutter_screen_time.const.Argument
+import com.shebnik.flutter_screen_time.const.Field
+import com.shebnik.flutter_screen_time.const.PermissionRequestCode
 import com.shebnik.flutter_screen_time.const.PermissionStatus
 import com.shebnik.flutter_screen_time.const.PermissionType
-import com.shebnik.flutter_screen_time.const.PermissionRequestCode
-import com.shebnik.flutter_screen_time.const.Field
-import com.shebnik.flutter_screen_time.util.ApplicationInfoUtil
-import io.flutter.Log
-import java.io.ByteArrayOutputStream
-import androidx.core.graphics.createBitmap
-import com.shebnik.flutter_screen_time.const.Argument
 import com.shebnik.flutter_screen_time.service.BlockAppsService
+import com.shebnik.flutter_screen_time.service.DomainBlockingAccessibilityService
+import com.shebnik.flutter_screen_time.util.ApplicationInfoUtil
+import java.io.ByteArrayOutputStream
+
 
 object FlutterScreenTimeMethod {
 
@@ -99,13 +105,21 @@ object FlutterScreenTimeMethod {
             }
 
             PermissionType.ACCESSIBILITY_SETTINGS -> {
+                // Check if the accessibility service is enabled
                 val am =
-                    context.getSystemService(Context.ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
-                return if (am.isEnabled) {
-                    PermissionStatus.APPROVED
-                } else {
-                    PermissionStatus.DENIED
+                    context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+                val enabledServices =
+                    am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_GENERIC)
+
+                for (enabledService in enabledServices) {
+                    val enabledServiceInfo: ServiceInfo =
+                        enabledService.resolveInfo.serviceInfo
+                    if (enabledServiceInfo.packageName.equals(context.getPackageName()) && enabledServiceInfo.name.equals(
+                            DomainBlockingAccessibilityService::class.java.name
+                        )
+                    ) return PermissionStatus.APPROVED
                 }
+                return PermissionStatus.DENIED
             }
         }
     }
@@ -158,9 +172,7 @@ object FlutterScreenTimeMethod {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         val intent = Intent(
                             Settings.ACTION_APP_NOTIFICATION_SETTINGS, packageUri
-                        ).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        }
+                        )
                         activity.startActivityForResult(
                             intent, PermissionRequestCode.REQUEST_CODE_NOTIFICATION
                         )
@@ -179,7 +191,6 @@ object FlutterScreenTimeMethod {
                     val intent = Intent(
                         Settings.ACTION_ACCESSIBILITY_SETTINGS
                     )
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     activity.startActivityForResult(
                         intent, PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_SETTINGS
                     )
@@ -349,6 +360,70 @@ object FlutterScreenTimeMethod {
             true
         } catch (e: Exception) {
             Log.e("FlutterScreenTimeMethod", "Error stopping block service", e)
+            false
+        }
+    }
+
+    fun blockDomains(
+        context: Context,
+        domains: List<String>,
+        layoutName: String? = null,
+        notificationTitle: String? = null,
+        notificationBody: String? = null
+    ): Boolean {
+        if (domains.isEmpty()) return false
+
+        try {
+            val intent = Intent(context, DomainBlockingAccessibilityService::class.java).apply {
+                action = DomainBlockingAccessibilityService.ACTION_START_BLOCKING
+                putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(domains))
+
+                val callerPackageName = context.packageName
+                putExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, callerPackageName)
+                putExtra(
+                    Argument.BLOCK_OVERLAY_LAYOUT_NAME,
+                    layoutName ?: DomainBlockingAccessibilityService.DEFAULT_LAYOUT_NAME
+                )
+
+                putExtra(Argument.NOTIFICATION_TITLE, notificationTitle)
+                putExtra(Argument.NOTIFICATION_BODY, notificationBody)
+            }
+
+            context.startService(intent)
+            Log.d("FlutterScreenTimeMethod", "Domain blocking started successfully")
+            return true
+
+        } catch (e: Exception) {
+            Log.e("FlutterScreenTimeMethod", "Error starting domain blocking", e)
+            return false
+        }
+    }
+
+    fun stopBlockingDomains(context: Context): Boolean {
+        return try {
+            val intent = Intent(context, DomainBlockingAccessibilityService::class.java).apply {
+                action = DomainBlockingAccessibilityService.ACTION_STOP_BLOCKING
+            }
+            context.startService(intent)
+            Log.d("FlutterScreenTimeMethod", "Domain blocking stopped successfully")
+            true
+        } catch (e: Exception) {
+            Log.e("FlutterScreenTimeMethod", "Error stopping domain blocking", e)
+            false
+        }
+    }
+
+    fun updateBlockedDomains(context: Context, domains: List<String>): Boolean {
+        return try {
+            val intent = Intent(context, DomainBlockingAccessibilityService::class.java).apply {
+                action = DomainBlockingAccessibilityService.ACTION_UPDATE_WEB_DOMAINS
+                putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(domains))
+            }
+            context.startService(intent)
+            Log.d("FlutterScreenTimeMethod", "Blocked domains updated successfully")
+            true
+        } catch (e: Exception) {
+            Log.e("FlutterScreenTimeMethod", "Error updating blocked domains", e)
             false
         }
     }

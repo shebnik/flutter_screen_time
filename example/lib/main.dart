@@ -47,8 +47,16 @@ class _MyAppState extends State<MyApp> {
   List<AppCategory> categories = [];
   Map<AppCategory, Set<InstalledApp>> selectedApps = {};
 
+  var selectedWebDomains = [
+    'facebook.com',
+    'twitter.com',
+    'instagram.com',
+    'tiktok.com',
+  ];
+
   bool isLoading = true;
   bool isBlockingApps = false;
+  bool isBlockingWebDomains = false;
 
   @override
   void initState() {
@@ -149,9 +157,24 @@ class _MyAppState extends State<MyApp> {
         );
   }
 
-  //
-  // ignore: avoid_positional_boolean_parameters
-  Future<void> blockApps(bool? value) async {
+  Future<bool> checkDomainBlockingPermissions() async {
+    debugPrint('Current permissions: $_permissionStatus');
+    for (final type in _permissionStatus.entries.where(
+      (e) => e.value != PermissionStatus.approved,
+    )) {
+      debugPrint('Requesting permission for ${type.key}');
+      await requestPermission(type.key);
+      debugPrint(
+        'Permission for ${type.key.name} is now ${_permissionStatus[type.key]}',
+      );
+    }
+
+    return _permissionStatus.values.every(
+      (e) => e == PermissionStatus.approved,
+    );
+  }
+
+  Future<void> blockApps({required bool? value}) async {
     if (value == null) return;
 
     if (!(await checkAppBlockingPermissions())) {
@@ -175,6 +198,23 @@ class _MyAppState extends State<MyApp> {
     if (mounted) setState(() => isBlockingApps = value);
   }
 
+  Future<void> blockWebDomains({required bool? value}) async {
+    if (value == null) return;
+
+    if (!(await checkDomainBlockingPermissions())) {
+      return;
+    }
+    if (isBlockingWebDomains) {
+      await _flutterScreenTimePlugin.stopBlockingWebDomains();
+    } else {
+      await _flutterScreenTimePlugin.blockWebDomains(
+        webDomains: selectedWebDomains,
+      );
+    }
+
+    if (mounted) setState(() => isBlockingWebDomains = value);
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -184,16 +224,18 @@ class _MyAppState extends State<MyApp> {
         ),
         body: isLoading
             ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _currentPermissionStatus(),
-                  const SizedBox(height: 16),
-                  _categorizedAppsList(),
-                  const SizedBox(height: 16),
-                  _blockApps(),
-                  const SizedBox(height: 16),
-                ],
+            : SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    spacing: 16,
+                    children: [
+                      _currentPermissionStatus(),
+                      _blockApps(),
+                      _blockWebsites(),
+                    ],
+                  ),
+                ),
               ),
       ),
     );
@@ -228,6 +270,16 @@ class _MyAppState extends State<MyApp> {
                 : null,
           );
         }),
+      ],
+    );
+  }
+
+  Widget _blockApps() {
+    return Column(
+      children: [
+        Text('Block Apps', style: Theme.of(context).textTheme.headlineSmall),
+        _categorizedAppsList(),
+        _blockAppsToggle(),
       ],
     );
   }
@@ -282,11 +334,55 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  Widget _blockApps() {
+  Widget _blockAppsToggle() {
     return CheckboxListTile(
       title: const Text('Block Selected Apps'),
       value: isBlockingApps,
-      onChanged: blockApps,
+      onChanged: (value) => blockApps(value: value),
+    );
+  }
+
+  Widget _blockWebsites() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Block Web Domains',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          decoration: const InputDecoration(
+            labelText: 'Add Web Domain',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) {
+            setState(() {
+              selectedWebDomains.add(value);
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+        ...selectedWebDomains.map((website) {
+          return ListTile(
+            title: Text(website),
+            trailing: IconButton(
+              icon: const Icon(Icons.remove),
+              onPressed: () {
+                setState(() {
+                  selectedWebDomains.remove(website);
+                });
+              },
+            ),
+          );
+        }),
+        const SizedBox(height: 16),
+        CheckboxListTile(
+          value: isBlockingWebDomains,
+          onChanged: (value) => blockWebDomains(value: value),
+          title: const Text('Block Web Domains'),
+        ),
+      ],
     );
   }
 }

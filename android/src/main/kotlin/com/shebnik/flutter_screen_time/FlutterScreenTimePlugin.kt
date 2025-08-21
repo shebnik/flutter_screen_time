@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.util.Log
 
 /** FlutterScreenTimePlugin */
 class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
@@ -134,6 +135,40 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 result.success(FlutterScreenTimeMethod.stopBlockingApps(context))
             }
 
+            MethodName.BLOCK_WEB_DOMAINS -> {
+                val args = call.arguments as Map<*, *>
+                val domains = args[Argument.WEB_DOMAINS] as List<*>?
+                val layoutName = args[Argument.BLOCK_OVERLAY_LAYOUT_NAME] as String?
+                val notificationTitle = args[Argument.NOTIFICATION_TITLE] as String?
+                val notificationBody = args[Argument.NOTIFICATION_BODY] as String?
+
+                val response = FlutterScreenTimeMethod.blockDomains(
+                    context,
+                    domains?.filterIsInstance<String>() ?: mutableListOf(),
+                    layoutName,
+                    notificationTitle,
+                    notificationBody
+                )
+
+                result.success(response)
+            }
+
+            MethodName.STOP_BLOCKING_WEB_DOMAINS -> {
+                result.success(FlutterScreenTimeMethod.stopBlockingDomains(context))
+            }
+
+            MethodName.UPDATE_BLOCKED_WEB_DOMAINS -> {
+                val args = call.arguments as Map<*, *>
+                val domains = args[Argument.BUNDLE_IDS] as List<*>?
+
+                val response = FlutterScreenTimeMethod.updateBlockedDomains(
+                    context,
+                    domains?.filterIsInstance<String>() ?: mutableListOf()
+                )
+
+                result.success(response)
+            }
+
             else -> result.notImplemented()
         }
     }
@@ -152,6 +187,10 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         if (result != null && pendingPermissionType == permissionType) {
             val isGranted = FlutterScreenTimeMethod.handlePermissionResult(context, permissionType)
             result.success(isGranted)
+            Log.d(
+                "FlutterScreenTimePlugin",
+                "Permission result for $permissionType: $isGranted"
+            )
 
             // Clear pending callbacks
             pendingResult = null
