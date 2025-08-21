@@ -68,7 +68,7 @@ class FlutterScreenTimeMethod {
         }
     }
     
-    func blockApps(arguments: [String: Any]?, result: @escaping FlutterResult) {
+    func blockApps(arguments: [String: Any], result: @escaping FlutterResult) {
         Task {
             // Check authorization first
             if (!checkAuthorization(result: result)) {return}
@@ -95,7 +95,113 @@ class FlutterScreenTimeMethod {
         // Clear all selections and encourage all apps
         FamilyControlsModel.shared.encourageAll()
         logSuccess("All apps encouraged and restrictions removed")
-        result(nil)
+        result(true)
+    }
+    
+    func unblockApps(arguments: [String:Any], result: @escaping FlutterResult){
+        // Check authorization first
+        if(!checkAuthorization(result: result)) {return}
+        Task {
+            do {
+                try await encourageSelection(with: arguments)
+                logSuccess("Successfully encouraged selected apps")
+                result(true)
+            } catch {
+                logError("Failed to encourage apps: \(error.localizedDescription)")
+                result(
+                    FlutterError(
+                        code: "ENCOURAGE_FAILED",
+                        message: "Failed to encourage selection in Screen Time API",
+                        details: error.localizedDescription
+                    ))
+            }
+        }
+    }
+    
+    func getBlockedApps(result: @escaping FlutterResult) {
+        // Check authorization first
+        if(!checkAuthorization(result: result)) {return}
+        
+        let discouragedApps = FamilyControlsModel.shared.getDiscouragedApps()
+        result(discouragedApps)
+    }
+    
+    func setAdultContentBlocking(isEnabled: Bool, result: @escaping FlutterResult) {
+        // Check authorization first
+        if(!checkAuthorization(result: result)) {return}
+        
+        FamilyControlsModel.shared.setAdultWebsiteBlocking(enabled: isEnabled)
+        logInfo("🔒 Adult website blocking \(isEnabled ? "enabled" : "disabled")")
+        result(true)
+    }
+    
+    func isAdultContentBlocked(result: @escaping FlutterResult) {
+        // Check authorization first
+        if(!checkAuthorization(result: result)) {return}
+        let isBlocked = FamilyControlsModel.shared.getAdultWebsiteBlocking()
+        logInfo("Get adult website blocking called, isBlocked: \(isBlocked)")
+        result(isBlocked)
+    }
+    
+    func setWebContentBlocking(adultContentBlocked: Bool, blockedDomains: [String], result: @escaping FlutterResult) {
+        // Check authorization first
+        if(!checkAuthorization(result: result)) {return}
+        
+        if blockedDomains.count > 50 {
+            result(
+                FlutterError(
+                    code: "TOO_MANY_BLOCKED_DOMAINS",
+                    message: "Too many blocked domains. Maximum is 50.",
+                    details: "Provided: \(blockedDomains.count)"
+                ))
+            return
+        }
+        
+        Task {
+            do {
+                logInfo(
+                    "Setting web content blocking - adult content blocked: \(adultContentBlocked), blocked domains: \(blockedDomains.count)"
+                )
+                try await FamilyControlsModel.shared.setWebContentBlocking(
+                    adultContentBlocked: adultContentBlocked,
+                    blockedDomains: blockedDomains
+                )
+                logSuccess("Web content blocking set successfully")
+                result(true)
+            } catch {
+                logError("Failed to set web content blocking: \(error.localizedDescription)")
+                result(
+                    FlutterError(
+                        code: "WEB_CONTENT_BLOCKING_FAILED",
+                        message: "Failed to set web content blocking",
+                        details: error.localizedDescription
+                    ))
+            }
+        }
+    }
+    
+    func getWebContentBlocking(result: @escaping FlutterResult) {
+        // Check authorization first
+        if(!checkAuthorization(result: result)) {return}
+        
+        Task {
+            do {
+                let webContentConfig = try await FamilyControlsModel.shared
+                    .getWebContentBlocking()
+                logInfo(
+                    "Get web content blocking completed - adult content: \(webContentConfig[Argument.IS_ADULT_CONTENT_BLOCKED] as? Bool ?? false), blocked domains: \((webContentConfig[Argument.BLOCKED_WEB_DOMAINS] as? [String])?.count ?? 0))"
+                )
+                result(webContentConfig)
+            } catch {
+                logError("Failed to get web content blocking: \(error.localizedDescription)")
+                result(
+                    FlutterError(
+                        code: "WEB_CONTENT_BLOCKING_FETCH_FAILED",
+                        message: "Failed to get web content blocking",
+                        details: error.localizedDescription
+                    ))
+            }
+        }
     }
     
     @objc func onSelectionSaved() {
@@ -271,13 +377,13 @@ class FlutterScreenTimeMethod {
     public func getAuthorizationStatus() -> String {
         switch AuthorizationCenter.shared.authorizationStatus {
         case .notDetermined:
-            return PermissionStatus.notDetermined.description
+            return String(describing: AuthorizationStatus.notDetermined)
         case .denied:
-            return PermissionStatus.denied.description
+            return String(describing: AuthorizationStatus.denied)
         case .approved:
-            return PermissionStatus.authorized.description
+            return String(describing: AuthorizationStatus.approved)
         @unknown default:
-            return PermissionStatus.notDetermined.description
+            return String(describing: AuthorizationStatus.notDetermined)
         }
     }
     

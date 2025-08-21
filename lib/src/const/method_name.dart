@@ -1,6 +1,8 @@
 class MethodName {
+  static const configure = 'configure';
+
   static const requestPermission = 'requestPermission';
-  static const permissionStatus = 'permissionStatus';
+  static const authorizationStatus = 'authorizationStatus';
 
   static const installedApps = 'installedApps';
   static const blockApps = 'blockApps';

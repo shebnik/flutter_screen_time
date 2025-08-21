@@ -26,7 +26,7 @@ import com.shebnik.flutter_screen_time.*
 import com.shebnik.flutter_screen_time.const.Argument
 import com.shebnik.flutter_screen_time.const.Field
 import com.shebnik.flutter_screen_time.const.PermissionRequestCode
-import com.shebnik.flutter_screen_time.const.PermissionStatus
+import com.shebnik.flutter_screen_time.const.AuthorizationStatus
 import com.shebnik.flutter_screen_time.const.PermissionType
 import com.shebnik.flutter_screen_time.service.BlockAppsService
 import com.shebnik.flutter_screen_time.service.DomainBlockingAccessibilityService
@@ -36,9 +36,9 @@ import java.io.ByteArrayOutputStream
 
 object FlutterScreenTimeMethod {
 
-    fun permissionStatus(
+    fun authorizationStatus(
         context: Context, type: PermissionType = PermissionType.APP_USAGE
-    ): PermissionStatus {
+    ): AuthorizationStatus {
         when (type) {
             PermissionType.APP_USAGE -> {
                 val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
@@ -58,15 +58,15 @@ object FlutterScreenTimeMethod {
 
                 return when (mode) {
                     AppOpsManager.MODE_ALLOWED -> {
-                        PermissionStatus.APPROVED
+                        AuthorizationStatus.APPROVED
                     }
 
                     AppOpsManager.MODE_IGNORED -> {
-                        PermissionStatus.DENIED
+                        AuthorizationStatus.DENIED
                     }
 
                     else -> {
-                        PermissionStatus.NOT_DETERMINED
+                        AuthorizationStatus.NOT_DETERMINED
                     }
                 }
             }
@@ -74,9 +74,9 @@ object FlutterScreenTimeMethod {
             PermissionType.DRAW_OVERLAY -> {
                 val result = Settings.canDrawOverlays(context)
                 return if (result) {
-                    PermissionStatus.APPROVED
+                    AuthorizationStatus.APPROVED
                 } else {
-                    PermissionStatus.DENIED
+                    AuthorizationStatus.DENIED
                 }
             }
 
@@ -88,19 +88,19 @@ object FlutterScreenTimeMethod {
                     )
                     when (permission) {
                         PackageManager.PERMISSION_GRANTED -> {
-                            PermissionStatus.APPROVED
+                            AuthorizationStatus.APPROVED
                         }
 
                         PackageManager.PERMISSION_DENIED -> {
-                            PermissionStatus.DENIED
+                            AuthorizationStatus.DENIED
                         }
 
                         else -> {
-                            PermissionStatus.NOT_DETERMINED
+                            AuthorizationStatus.NOT_DETERMINED
                         }
                     }
                 } else {
-                    PermissionStatus.APPROVED
+                    AuthorizationStatus.APPROVED
                 }
             }
 
@@ -117,9 +117,9 @@ object FlutterScreenTimeMethod {
                     if (enabledServiceInfo.packageName.equals(context.getPackageName()) && enabledServiceInfo.name.equals(
                             DomainBlockingAccessibilityService::class.java.name
                         )
-                    ) return PermissionStatus.APPROVED
+                    ) return AuthorizationStatus.APPROVED
                 }
-                return PermissionStatus.DENIED
+                return AuthorizationStatus.DENIED
             }
         }
     }
@@ -210,8 +210,8 @@ object FlutterScreenTimeMethod {
     fun handlePermissionResult(
         context: Context, type: PermissionType
     ): Boolean {
-        val status = permissionStatus(context, type)
-        return status == PermissionStatus.APPROVED
+        val status = authorizationStatus(context, type)
+        return status == AuthorizationStatus.APPROVED
     }
 
     fun installedApps(context: Context, ignoreSystemApps: Boolean = true): Map<String, Any> {

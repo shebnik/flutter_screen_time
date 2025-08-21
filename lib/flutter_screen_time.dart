@@ -1,25 +1,56 @@
 import 'package:flutter_screen_time/flutter_screen_time_platform_interface.dart';
-import 'package:flutter_screen_time/src/model/app_category.dart';
-import 'package:flutter_screen_time/src/model/installed_app.dart';
-import 'package:flutter_screen_time/src/model/permission_status.dart';
-import 'package:flutter_screen_time/src/model/permission_type.dart';
+import 'package:flutter_screen_time/src/model/android/android_permission_type.dart';
+import 'package:flutter_screen_time/src/model/android/app_category.dart';
+import 'package:flutter_screen_time/src/model/android/installed_app.dart';
+import 'package:flutter_screen_time/src/model/authorization_status.dart';
+import 'package:flutter_screen_time/src/model/ios/plugin_configuration.dart';
 
-export 'package:flutter_screen_time/src/model/app_category.dart';
-export 'package:flutter_screen_time/src/model/installed_app.dart';
-export 'package:flutter_screen_time/src/model/permission_status.dart';
-export 'package:flutter_screen_time/src/model/permission_type.dart';
+export 'package:flutter_screen_time/src/model/android/android_permission_type.dart';
+export 'package:flutter_screen_time/src/model/android/app_category.dart';
+export 'package:flutter_screen_time/src/model/android/installed_app.dart';
+export 'package:flutter_screen_time/src/model/authorization_status.dart';
 
 class FlutterScreenTime {
-  Future<PermissionStatus> permissionStatus({
-    PermissionType permissionType = PermissionType.appUsage,
+
+  // Static configuration state
+  static PluginConfiguration? _globalConfiguration;
+  static bool _isConfigured = false;
+
+  /// Configure the app's internal settings needed for Screen Time APIs
+  ///
+  /// This is a static method that configures the plugin globally.
+  /// All instances of FlutterScreenTime will use this configuration.
+  /// 
+  /// [logFilePath] specifies where to store plugin logs (optional)
+  ///
+  /// Returns a [PluginConfiguration] object indicating success or failure
+  /// with relevant configuration details
+  static Future<PluginConfiguration> configure({
+    String? logFilePath,
+  }) async {
+    _globalConfiguration = await FlutterScreenTimePlatform.instance.configure(
+      logFilePath: logFilePath,
+    );
+    _isConfigured = true;
+    return _globalConfiguration!;
+  }
+
+  /// Get the current global configuration if available
+  static PluginConfiguration? get globalConfiguration => _globalConfiguration;
+
+  /// Check if the plugin has been configured globally
+  static bool get isConfigured => _isConfigured;
+
+  Future<AuthorizationStatus> authorizationStatus({
+    AndroidPermissionType permissionType = AndroidPermissionType.appUsage,
   }) {
-    return FlutterScreenTimePlatform.instance.permissionStatus(
+    return FlutterScreenTimePlatform.instance.authorizationStatus(
       permissionType: permissionType,
     );
   }
 
   Future<bool> requestPermission({
-    PermissionType permissionType = PermissionType.appUsage,
+    AndroidPermissionType permissionType = AndroidPermissionType.appUsage,
   }) {
     return FlutterScreenTimePlatform.instance.requestPermission(
       permissionType: permissionType,
@@ -29,7 +60,7 @@ class FlutterScreenTime {
   Future<List<InstalledApp>> installedApps({
     bool ignoreSystemApps = true,
   }) {
-    return FlutterScreenTimePlatform.instance.installedApps(
+    return FlutterScreenTimePlatform.instance.getAndroidInstalledApps(
       ignoreSystemApps: ignoreSystemApps,
     );
   }
@@ -48,7 +79,7 @@ class FlutterScreenTime {
     String? notificationTitle,
     String? notificationBody,
   }) {
-    return FlutterScreenTimePlatform.instance.blockApps(
+    return FlutterScreenTimePlatform.instance.blockAndroidApps(
       bundleIds: bundleIds,
       layoutName: layoutName,
       notificationTitle: notificationTitle,
@@ -57,9 +88,17 @@ class FlutterScreenTime {
   }
 
   Future<bool> stopBlockingApps() {
-    return FlutterScreenTimePlatform.instance.stopBlockingApps();
+    return FlutterScreenTimePlatform.instance.stopBlockingAndroidApps();
   }
 
+  /// Blocks the specified web domains.
+  ///
+  /// [webDomains] The list of web domains to block.
+  ///
+  /// Android specific parameters:
+  /// [layoutName] Custom layout for android overlay.
+  /// [notificationTitle] Custom title for the android notification.
+  /// [notificationBody] Custom body for the android notification.
   Future<bool> blockWebDomains({
     required List<String> webDomains,
     String? layoutName,

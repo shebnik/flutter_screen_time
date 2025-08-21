@@ -37,7 +37,7 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
             result([
                 "configured": configuredItems,
             ])
-        case MethodName.PERMISSION_STATUS:
+        case MethodName.AUTHORIZATION_STATUS:
             let status = methods.getAuthorizationStatus()
             logDebug("📋 Authorization status checked: \(status)")
             result(["status": status])
@@ -81,7 +81,50 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
             }
             methods.blockApps(arguments: arguments, result: result)
         case MethodName.UNBLOCK_APPS:
-            
+            guard let arguments = call.arguments as? [String: Any] else {
+                result(
+                    FlutterError(
+                        code: "INVALID_ARGUMENTS",
+                        message: "Invalid arguments provided to encourage",
+                        details: nil
+                    ))
+                return
+            }
+            methods.unblockApps(arguments: arguments, result: result)
+        case MethodName.GET_BLOCKED_APPS:
+            methods.getBlockedApps(result: result)
+        case MethodName.SET_ADULT_CONTENT_BLOCKING:
+            guard let arguments = call.arguments as? [String: Any],
+                  let enabled = arguments[Argument.IS_ENABLED] as? Bool
+            else {
+                result(
+                    FlutterError(
+                        code: "INVALID_ARGUMENTS",
+                        message: "Invalid arguments provided to setAdultWebsiteBlocking",
+                        details: nil
+                    ))
+                return
+            }
+            methods.setAdultContentBlocking(isEnabled: enabled, result: result)
+        case MethodName.IS_ADULT_CONTENT_BLOCKED:
+            methods.isAdultContentBlocked(result: result)
+        case MethodName.BLOCK_WEB_DOMAINS:
+            guard let arguments = call.arguments as? [String: Any],
+                  let adultContentBlocked = arguments[Argument.IS_ADULT_CONTENT_BLOCKED] as? Bool,
+                  let blockedDomains = arguments[Argument.BLOCKED_WEB_DOMAINS] as? [String]
+            else {
+                result(
+                    FlutterError(
+                        code: "INVALID_ARGUMENTS",
+                        message: "Invalid arguments provided to blockWebDomains",
+                        details:
+                            "Expected: adultContentBlocked (Bool), blockedDomains (List<String>)"
+                    ))
+                return
+            }
+            methods.setWebContentBlocking(adultContentBlocked: adultContentBlocked, blockedDomains: blockedDomains, result: result)
+        case MethodName.GET_WEB_CONTENT_BLOCKING:
+            methods.getWebContentBlocking(result: result)
         case MethodName.DISABLE_ALL_BLOCKING:
             methods.disableAllBlocking(result: result)
         default:

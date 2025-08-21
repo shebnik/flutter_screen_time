@@ -1,12 +1,12 @@
 //
-//  PermissionStatus.swift
+//  AuthorizationStatus.swift
 //  flutter_screen_time
 //
 //  Created by Nikita on 8/21/25.
 //
 
-enum class PermissionStatus {
-    notDetermined,
-    approved,
-    denied
+enum AuthorizationStatus: String {
+    case notDetermined
+    case approved
+    case denied
 }

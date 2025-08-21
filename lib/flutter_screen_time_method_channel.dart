@@ -5,41 +5,70 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screen_time/flutter_screen_time_platform_interface.dart';
 import 'package:flutter_screen_time/src/const/argument.dart';
 import 'package:flutter_screen_time/src/const/method_name.dart';
-import 'package:flutter_screen_time/src/model/installed_app.dart';
-import 'package:flutter_screen_time/src/model/permission_status.dart';
-import 'package:flutter_screen_time/src/model/permission_type.dart';
+import 'package:flutter_screen_time/src/model/android/android_permission_type.dart';
+import 'package:flutter_screen_time/src/model/android/installed_app.dart';
+import 'package:flutter_screen_time/src/model/authorization_status.dart';
+import 'package:flutter_screen_time/src/model/ios/plugin_configuration.dart';
 
 class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   @visibleForTesting
   final methodChannel = const MethodChannel('flutter_screen_time');
 
   @override
-  Future<PermissionStatus> permissionStatus({
-    PermissionType permissionType = PermissionType.appUsage,
+  Future<PluginConfiguration> configure({
+    String? logFilePath,
+  }) async {
+    try {
+      final arguments = <String, dynamic>{};
+
+      if (logFilePath != null) {
+        arguments[Argument.logFilePath] = logFilePath;
+      }
+
+      final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
+        MethodName.configure,
+        arguments.isNotEmpty ? arguments : null,
+      );
+
+      return PluginConfiguration.fromMap(
+        Map<String, dynamic>.from(result ?? {}),
+      );
+    } catch (e) {
+      debugPrint('Error in configure: $e');
+      return PluginConfiguration(error: e.toString());
+    }
+  }
+
+  @override
+  Future<AuthorizationStatus> authorizationStatus({
+    AndroidPermissionType? permissionType = AndroidPermissionType.appUsage,
   }) async {
     final status =
-        await methodChannel.invokeMethod<String>(MethodName.permissionStatus, {
-          Argument.permissionType: permissionType.name,
-        }) ??
-        PermissionStatus.notDetermined.name;
-    return PermissionStatus.values.byName(status);
+        await methodChannel.invokeMethod<String>(
+          MethodName.authorizationStatus,
+          {
+            Argument.permissionType: permissionType?.name,
+          },
+        ) ??
+        AuthorizationStatus.notDetermined.name;
+    return AuthorizationStatus.values.byName(status);
   }
 
   @override
   Future<bool> requestPermission({
-    PermissionType permissionType = PermissionType.appUsage,
+    AndroidPermissionType? permissionType = AndroidPermissionType.appUsage,
   }) async {
     return await methodChannel.invokeMethod<bool>(
           MethodName.requestPermission,
           {
-            Argument.permissionType: permissionType.name,
+            Argument.permissionType: permissionType?.name,
           },
         ) ??
         false;
   }
 
   @override
-  Future<List<InstalledApp>> installedApps({
+  Future<List<InstalledApp>> getAndroidInstalledApps({
     bool ignoreSystemApps = true,
   }) async {
     final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
@@ -62,7 +91,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   }
 
   @override
-  Future<bool> blockApps({
+  Future<bool> blockAndroidApps({
     List<String> bundleIds = const <String>[],
     String? layoutName,
     String? notificationTitle,
@@ -81,7 +110,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   }
 
   @override
-  Future<bool> stopBlockingApps() async {
+  Future<bool> stopBlockingAndroidApps() async {
     return await methodChannel.invokeMethod<bool>(
           MethodName.stopBlockingApps,
         ) ??
@@ -91,6 +120,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   @override
   Future<bool> blockWebDomains({
     required List<String> webDomains,
+    bool isAdultContentBlocked = false,
     String? layoutName,
     String? notificationTitle,
     String? notificationBody,
@@ -98,7 +128,8 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
     return await methodChannel.invokeMethod<bool>(
           MethodName.blockWebDomains,
           {
-            Argument.webDomains: webDomains,
+            Argument.blockedWebDomains: webDomains,
+            Argument.isAdultContentBlocked: isAdultContentBlocked,
             Argument.blockOverlayLayoutName: layoutName,
             Argument.notificationTitle: notificationTitle,
             Argument.notificationBody: notificationBody,
@@ -120,7 +151,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
     return await methodChannel.invokeMethod<bool>(
           MethodName.updateBlockedWebDomains,
           {
-            Argument.webDomains: webDomains,
+            Argument.blockedWebDomains: webDomains,
           },
         ) ??
         false;

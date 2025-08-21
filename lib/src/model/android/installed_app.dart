@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:flutter_screen_time/src/model/app_category.dart';
+import 'package:flutter_screen_time/src/model/android/app_category.dart';
 
 class BaseInstalledApp {
   BaseInstalledApp({

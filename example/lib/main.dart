@@ -36,10 +36,10 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final _flutterScreenTimePlugin = FlutterScreenTime();
 
-  final Map<PermissionType, PermissionStatus> _permissionStatus =
+  final Map<AndroidPermissionType, AuthorizationStatus> _permissionStatus =
       Map.fromEntries(
-        PermissionType.values.map(
-          (type) => MapEntry(type, PermissionStatus.notDetermined),
+        AndroidPermissionType.values.map(
+          (type) => MapEntry(type, AuthorizationStatus.notDetermined),
         ),
       );
 
@@ -72,10 +72,10 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> determinePermissions() async {
-    for (final type in PermissionType.values) {
+    for (final type in AndroidPermissionType.values) {
       try {
         _permissionStatus[type] = await _flutterScreenTimePlugin
-            .permissionStatus(
+            .authorizationStatus(
               permissionType: type,
             );
       } on PlatformException catch (e) {
@@ -102,7 +102,7 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Future<void> requestPermission(PermissionType type) async {
+  Future<void> requestPermission(AndroidPermissionType type) async {
     bool result;
 
     try {
@@ -124,8 +124,8 @@ class _MyAppState extends State<MyApp> {
     if (mounted) {
       setState(() {
         _permissionStatus[type] = result
-            ? PermissionStatus.approved
-            : PermissionStatus.denied;
+            ? AuthorizationStatus.approved
+            : AuthorizationStatus.denied;
       });
     }
   }
@@ -135,32 +135,32 @@ class _MyAppState extends State<MyApp> {
         in _permissionStatus.entries
             .where(
               (e) => [
-                PermissionType.appUsage,
-                PermissionType.drawOverlay,
-                PermissionType.notification,
+                AndroidPermissionType.appUsage,
+                AndroidPermissionType.drawOverlay,
+                AndroidPermissionType.notification,
               ].contains(e.key),
             )
-            .where((e) => e.value != PermissionStatus.approved)) {
+            .where((e) => e.value != AuthorizationStatus.approved)) {
       await requestPermission(type.key);
     }
 
     return _permissionStatus.entries
         .where(
           (e) => [
-            PermissionType.appUsage,
-            PermissionType.drawOverlay,
-            PermissionType.notification,
+            AndroidPermissionType.appUsage,
+            AndroidPermissionType.drawOverlay,
+            AndroidPermissionType.notification,
           ].contains(e.key),
         )
         .every(
-          (e) => e.value == PermissionStatus.approved,
+          (e) => e.value == AuthorizationStatus.approved,
         );
   }
 
   Future<bool> checkDomainBlockingPermissions() async {
     debugPrint('Current permissions: $_permissionStatus');
     for (final type in _permissionStatus.entries.where(
-      (e) => e.value != PermissionStatus.approved,
+      (e) => e.value != AuthorizationStatus.approved,
     )) {
       debugPrint('Requesting permission for ${type.key}');
       await requestPermission(type.key);
@@ -170,7 +170,7 @@ class _MyAppState extends State<MyApp> {
     }
 
     return _permissionStatus.values.every(
-      (e) => e == PermissionStatus.approved,
+      (e) => e == AuthorizationStatus.approved,
     );
   }
 
@@ -262,7 +262,7 @@ class _MyAppState extends State<MyApp> {
           return ListTile(
             title: Text(entry.key.name),
             subtitle: Text(entry.value.name),
-            trailing: entry.value != PermissionStatus.approved
+            trailing: entry.value != AuthorizationStatus.approved
                 ? ElevatedButton(
                     onPressed: () => requestPermission(entry.key),
                     child: const Text('Request'),

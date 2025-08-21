@@ -58,11 +58,11 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
-            MethodName.PERMISSION_STATUS -> {
+            MethodName.AUTHORIZATION_STATUS -> {
                 val args = call.arguments as Map<*, *>
                 val permissionType = args[Argument.PERMISSION_TYPE] as String
 
-                val response = FlutterScreenTimeMethod.permissionStatus(
+                val response = FlutterScreenTimeMethod.authorizationStatus(
                     context,
                     PermissionType.valueOf(permissionType.toEnumFormat())
                 )
@@ -137,7 +137,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
             MethodName.BLOCK_WEB_DOMAINS -> {
                 val args = call.arguments as Map<*, *>
-                val domains = args[Argument.WEB_DOMAINS] as List<*>?
+                val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
                 val layoutName = args[Argument.BLOCK_OVERLAY_LAYOUT_NAME] as String?
                 val notificationTitle = args[Argument.NOTIFICATION_TITLE] as String?
                 val notificationBody = args[Argument.NOTIFICATION_BODY] as String?

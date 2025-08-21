@@ -1,4 +1,4 @@
-enum PermissionType {
+enum AndroidPermissionType {
   appUsage,
   drawOverlay,
   notification,

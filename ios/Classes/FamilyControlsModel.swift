@@ -98,9 +98,9 @@ class FamilyControlsModel: ObservableObject {
         }
         
         return [
-            "applicationTokens": applicationTokens,
-            "categoryTokens": categoryTokens,
-            "webDomainTokens": webDomainTokens,
+            Argument.APPLICATION_TOKENS: applicationTokens,
+            Argument.CATEGORY_TOKENS: categoryTokens,
+            Argument.WEB_DOMAIN_TOKENS: webDomainTokens,
         ]
     }
     
@@ -279,9 +279,9 @@ class FamilyControlsModel: ObservableObject {
         }
         
         let result: [String: Any] = [
-            "adultContentBlocked": adultContentBlocked,
-            "blockedDomains": blockedDomains,
-            "isActive": isFilterActive,
+            Argument.IS_ADULT_CONTENT_BLOCKED: adultContentBlocked,
+            Argument.BLOCKED_WEB_DOMAINS: blockedDomains,
+            Argument.IS_WEB_FILTER_ACTIVE: isFilterActive,
         ]
         
         logInfo(
