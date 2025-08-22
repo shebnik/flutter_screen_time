@@ -216,27 +216,60 @@ object FlutterScreenTimeMethod {
         return status == AuthorizationStatus.APPROVED
     }
 
-    fun installedApps(context: Context, ignoreSystemApps: Boolean = true): Map<String, Any> {
+    fun installedApps(
+        context: Context,
+        ignoreSystemApps: Boolean = true,
+        bundleIds: List<*>? = null
+    ): Map<String, Any> {
         try {
             val packageManager = context.packageManager
             val apps = ArrayList<ApplicationInfo>()
 
-            val installedApplications = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.getInstalledApplications(
-                    PackageManager.ApplicationInfoFlags.of(
-                        PackageManager.GET_META_DATA.toLong()
-                    )
-                )
-            } else {
-                @Suppress("DEPRECATION") packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-            }
+            if (bundleIds != null && bundleIds.isNotEmpty()) {
+                // Directly query specific packages
+                for (bundleId in bundleIds) {
+                    val packageName = bundleId.toString()
+                    try {
+                        val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
 
-            if (ignoreSystemApps) {
-                val filtered =
-                    installedApplications.filter { app -> (app.flags and ApplicationInfo.FLAG_SYSTEM) == 0 && app.packageName != context.packageName }
-                apps.addAll(filtered)
+                        // Apply filtering logic
+                        val shouldInclude = if (ignoreSystemApps) {
+                            (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 &&
+                                    appInfo.packageName != context.packageName
+                        } else {
+                            true
+                        }
+
+                        if (shouldInclude) {
+                            apps.add(appInfo)
+                        }
+                    } catch (e: PackageManager.NameNotFoundException) {
+                        // Package not found, skip it
+                        Log.w("installedApps", "Package not found: $packageName")
+                    }
+                }
             } else {
-                apps.addAll(installedApplications)
+                // Get all installed applications
+                val installedApplications = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    packageManager.getInstalledApplications(
+                        PackageManager.ApplicationInfoFlags.of(
+                            PackageManager.GET_META_DATA.toLong()
+                        )
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+                }
+
+                if (ignoreSystemApps) {
+                    val filtered = installedApplications.filter { app ->
+                        (app.flags and ApplicationInfo.FLAG_SYSTEM) == 0 &&
+                                app.packageName != context.packageName
+                    }
+                    apps.addAll(filtered)
+                } else {
+                    apps.addAll(installedApplications)
+                }
             }
 
             val appMap = ArrayList<MutableMap<String, Any?>>()
@@ -244,9 +277,7 @@ object FlutterScreenTimeMethod {
             for (app in apps) {
                 val appCategory = ApplicationInfoUtil.category(app.category)
                 val packageInfo = packageManager.getPackageInfo(app.packageName, 0)
-                val appIcon = appIconAsBase64(
-                    packageManager, app.packageName
-                )
+                val appIcon = appIconAsBase64(packageManager, app.packageName)
 
                 val data = mutableMapOf(
                     Field.appName to app.loadLabel(packageManager),

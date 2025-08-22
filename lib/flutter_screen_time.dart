@@ -153,12 +153,16 @@ class FlutterScreenTime {
   /// [ignoreSystemApps] determines whether to include system apps in the
   /// result.
   ///
+  /// [bundleIds] is an optional list of bundle IDs to filter the results.
+  ///
   /// Returns a list of [InstalledApp].
   Future<List<InstalledApp>> getAndroidInstalledApps({
     bool ignoreSystemApps = true,
+    List<String>? bundleIds,
   }) {
     return FlutterScreenTimeAndroid().getAndroidInstalledApps(
       ignoreSystemApps: ignoreSystemApps,
+      bundleIds: bundleIds,
     );
   }
 

@@ -109,10 +109,11 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             MethodName.INSTALLED_APPS -> {
                 val args = call.arguments as Map<*, *>
                 val ignoreSystemApps = args[Argument.IGNORE_SYSTEM_APPS] as Boolean? ?: true
+                val bundleIds = args[Argument.BUNDLE_IDS] as List<*>?
 
                 CoroutineScope(Dispatchers.IO).launch {
                     val installedApps =
-                        FlutterScreenTimeMethod.installedApps(context, ignoreSystemApps)
+                        FlutterScreenTimeMethod.installedApps(context, ignoreSystemApps, bundleIds)
                     withContext(Dispatchers.Main) {
                         result.success(installedApps)
                     }

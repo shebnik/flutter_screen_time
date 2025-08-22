@@ -13,11 +13,13 @@ class FlutterScreenTimeAndroid extends FlutterScreenTimePlatform {
   @override
   Future<List<InstalledApp>> getAndroidInstalledApps({
     bool ignoreSystemApps = true,
+    List<String>? bundleIds,
   }) async {
     final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
       MethodName.installedApps,
       {
         Argument.ignoreSystemApps: ignoreSystemApps,
+        Argument.bundleIds: bundleIds,
       },
     );
 

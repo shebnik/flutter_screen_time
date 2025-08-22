@@ -64,6 +64,7 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
 
   Future<List<InstalledApp>> getAndroidInstalledApps({
     bool ignoreSystemApps = true,
+    List<String>? bundleIds,
   }) => throw UnimplementedError('installedApps() has not been implemented.');
 
   Future<FamilyActivitySelection?> showFamilyActivityPicker({
