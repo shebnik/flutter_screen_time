@@ -11,6 +11,7 @@ import 'package:flutter_screen_time/src/model/ios/plugin_configuration.dart';
 import 'package:flutter_screen_time/src/model/ios/web_content_blocking_configuration.dart';
 
 export 'package:flutter_screen_time/src/model/model.dart';
+export 'package:flutter_screen_time/src/widgets/widgets.dart';
 
 class FlutterScreenTime {
   // Static configuration state
