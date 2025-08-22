@@ -107,7 +107,8 @@ class FamilyPickerConfiguration {
     return '#${argb.toRadixString(16).padLeft(8, '0').substring(2)}';
   }
 
-  /// Convert FamilyPickerConfiguration to a map for platform channel communication
+  /// Convert FamilyPickerConfiguration to a map for platform channel
+  /// communication
   Map<String, dynamic> toMap() {
     final map = <String, dynamic>{};
 
@@ -235,13 +236,14 @@ class FamilyPickerConfiguration {
 /// Predefined UI themes for common use cases
 class UIThemes {
   /// Default iOS system theme
-  static const FamilyPickerConfiguration defaultTheme = FamilyPickerConfiguration(
-    navigationTitle: 'Select Apps',
-    saveButtonText: 'Save',
-    appsCountText: 'Apps',
-    websitesCountText: 'Websites',
-    categoriesCountText: 'Categories',
-  );
+  static const FamilyPickerConfiguration defaultTheme =
+      FamilyPickerConfiguration(
+        navigationTitle: 'Select Apps',
+        saveButtonText: 'Save',
+        appsCountText: 'Apps',
+        websitesCountText: 'Websites',
+        categoriesCountText: 'Categories',
+      );
 
   /// Dark theme with dark colors
   static const FamilyPickerConfiguration darkTheme = FamilyPickerConfiguration(
@@ -257,19 +259,20 @@ class UIThemes {
   );
 
   /// Orange accent theme
-  static const FamilyPickerConfiguration orangeTheme = FamilyPickerConfiguration(
-    navigationTitle: 'Select Apps',
-    saveButtonText: 'Save Selection',
-    appsCountText: 'Applications',
-    websitesCountText: 'Websites',
-    categoriesCountText: 'Categories',
-    saveButtonColor: Color(0xFFFF6B35),
-    saveButtonTextColor: Color(0xFFFFFFFF),
-    countTextColor: Color(0xFF6B7280),
-    navigationTintColor: Color(0xFFFF6B35),
-    saveButtonFontSize: 18,
-    countTextFontSize: 16,
-  );
+  static const FamilyPickerConfiguration orangeTheme =
+      FamilyPickerConfiguration(
+        navigationTitle: 'Select Apps',
+        saveButtonText: 'Save Selection',
+        appsCountText: 'Applications',
+        websitesCountText: 'Websites',
+        categoriesCountText: 'Categories',
+        saveButtonColor: Color(0xFFFF6B35),
+        saveButtonTextColor: Color(0xFFFFFFFF),
+        countTextColor: Color(0xFF6B7280),
+        navigationTintColor: Color(0xFFFF6B35),
+        saveButtonFontSize: 18,
+        countTextFontSize: 16,
+      );
 
   /// Green theme
   static const FamilyPickerConfiguration greenTheme = FamilyPickerConfiguration(

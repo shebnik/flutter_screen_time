@@ -131,8 +131,8 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 result.success(response)
             }
 
-            MethodName.STOP_BLOCKING_APPS -> {
-                result.success(FlutterScreenTimeMethod.stopBlockingApps(context))
+            MethodName.DISABLE_APPS_BLOCKING -> {
+                result.success(FlutterScreenTimeMethod.disableAppsBlocking(context))
             }
 
             MethodName.BLOCK_WEB_DOMAINS -> {
@@ -153,20 +153,14 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 result.success(response)
             }
 
-            MethodName.STOP_BLOCKING_WEB_DOMAINS -> {
+            MethodName.DISABLE_WEB_DOMAINS_BLOCKING -> {
                 result.success(FlutterScreenTimeMethod.stopBlockingDomains(context))
             }
 
-            MethodName.UPDATE_BLOCKED_WEB_DOMAINS -> {
-                val args = call.arguments as Map<*, *>
-                val domains = args[Argument.BUNDLE_IDS] as List<*>?
-
-                val response = FlutterScreenTimeMethod.updateBlockedDomains(
-                    context,
-                    domains?.filterIsInstance<String>() ?: mutableListOf()
-                )
-
-                result.success(response)
+            MethodName.DISABLE_ALL_BLOCKING -> {
+                val disableAppsBlockingResult = FlutterScreenTimeMethod.disableAppsBlocking(context)
+                val stopBlockingDomainsResult = FlutterScreenTimeMethod.stopBlockingDomains(context)
+                result.success(disableAppsBlockingResult && stopBlockingDomainsResult)
             }
 
             else -> result.notImplemented()

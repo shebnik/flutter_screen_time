@@ -4,12 +4,21 @@ class MethodName {
   static const requestPermission = 'requestPermission';
   static const authorizationStatus = 'authorizationStatus';
 
-  static const installedApps = 'installedApps';
   static const blockApps = 'blockApps';
-  static const stopBlockingApps = 'stopBlockingApps';
-  static const unblockApps = 'unblockApps';
-
   static const blockWebDomains = 'blockWebDomains';
-  static const stopBlockingWebDomains = 'stopBlockingWebDomains';
-  static const updateBlockedWebDomains = 'updateBlockedWebDomains';
+
+  static const disableAppsBlocking = 'disableAppsBlocking';
+  static const disableWebDomainsBlocking = 'disableWebDomainsBlocking';
+  static const disableAllBlocking = 'disableAllBlocking';
+
+  // Android only
+  static const installedApps = 'installedApps';
+
+  // iOS only
+  static const showFamilyActivityPicker = 'showFamilyActivityPicker';
+  static const unblockApps = 'unblockApps';
+  static const getBlockedApps = 'getBlockedApps';
+  static const setAdultContentBlocking = 'setAdultContentBlocking';
+  static const isAdultContentBlocked = 'isAdultContentBlocked';
+  static const getWebContentBlocking = 'getWebContentBlocking';
 }

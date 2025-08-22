@@ -103,8 +103,8 @@ class FamilyControlsModel: ObservableObject {
             Argument.WEB_DOMAIN_TOKENS: webDomainTokens,
         ]
     }
-    
-    func encourageAll() {
+
+    func encourageAllApps() {
         store.shield.applications = []
         store.shield.applicationCategories = ShieldSettings
             .ActivityCategoryPolicy
@@ -117,8 +117,15 @@ class FamilyControlsModel: ObservableObject {
             .specific(
                 []
             )
-        // Also clear adult website blocking
+    }
+
+    func encourageAllWebDomains() {
         store.webContent.blockedByFilter = WebContentSettings.FilterPolicy.none
+    }
+
+    func encourageAll() {
+        encourageAllApps()
+        encourageAllWebDomains()
     }
     
     func encourage(

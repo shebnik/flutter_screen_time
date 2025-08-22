@@ -352,7 +352,7 @@ object FlutterScreenTimeMethod {
         }
     }
 
-    fun stopBlockingApps(context: Context): Boolean {
+    fun disableAppsBlocking(context: Context): Boolean {
         return try {
             val intent = Intent(context, BlockAppsService::class.java)
             context.stopService(intent)
@@ -376,7 +376,7 @@ object FlutterScreenTimeMethod {
         try {
             val intent = Intent(context, DomainBlockingAccessibilityService::class.java).apply {
                 action = DomainBlockingAccessibilityService.ACTION_START_BLOCKING
-                putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(domains))
+                putStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS, ArrayList(domains))
 
                 val callerPackageName = context.packageName
                 putExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, callerPackageName)
@@ -413,18 +413,4 @@ object FlutterScreenTimeMethod {
         }
     }
 
-    fun updateBlockedDomains(context: Context, domains: List<String>): Boolean {
-        return try {
-            val intent = Intent(context, DomainBlockingAccessibilityService::class.java).apply {
-                action = DomainBlockingAccessibilityService.ACTION_UPDATE_WEB_DOMAINS
-                putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(domains))
-            }
-            context.startService(intent)
-            Log.d("FlutterScreenTimeMethod", "Blocked domains updated successfully")
-            true
-        } catch (e: Exception) {
-            Log.e("FlutterScreenTimeMethod", "Error updating blocked domains", e)
-            false
-        }
-    }
 }

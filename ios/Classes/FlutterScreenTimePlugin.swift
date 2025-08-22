@@ -37,17 +37,13 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
             result([
                 "configured": configuredItems,
             ])
-        case MethodName.AUTHORIZATION_STATUS:
-            let status = methods.getAuthorizationStatus()
-            logDebug("📋 Authorization status checked: \(status)")
-            result(["status": status])
         case MethodName.REQUEST_PERMISSION:
             Task {
                 do {
                     logInfo("🔐 Requesting Screen Time authorization")
                     try await FamilyControlsModel.shared.authorize()
                     logSuccess("Authorization granted successfully")
-                    result(["status": "authorized"])
+                    result(true)
                 } catch {
                     logError("Authorization failed: \(error.localizedDescription)")
                     result(
@@ -58,17 +54,10 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
                         ))
                 }
             }
-        case MethodName.SHOW_FAMILY_ACTIVITY_PICKER:
-            guard let arguments = call.arguments as? [String: Any] else {
-                result(
-                    FlutterError(
-                        code: "INVALID_ARGUMENTS",
-                        message: "Invalid arguments provided to \(MethodName.SHOW_FAMILY_ACTIVITY_PICKER)",
-                        details: nil
-                    ))
-                return
-            }
-            methods.showFamilyActivityPicker(arguments: arguments, result: result)
+        case MethodName.AUTHORIZATION_STATUS:
+            let status = methods.getAuthorizationStatus()
+            logDebug("📋 Authorization status checked: \(status)")
+            result(status)
         case MethodName.BLOCK_APPS:
             guard let arguments = call.arguments as? [String: Any] else {
                 result(
@@ -80,7 +69,39 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
                 return
             }
             methods.blockApps(arguments: arguments, result: result)
-        case MethodName.UNBLOCK_APPS:
+        case MethodName.BLOCK_WEB_DOMAINS:
+            guard let arguments = call.arguments as? [String: Any],
+                  let adultContentBlocked = arguments[Argument.IS_ADULT_CONTENT_BLOCKED] as? Bool,
+                  let blockedDomains = arguments[Argument.BLOCKED_WEB_DOMAINS] as? [String]
+            else {
+                result(
+                    FlutterError(
+                        code: "INVALID_ARGUMENTS",
+                        message: "Invalid arguments provided to blockWebDomains",
+                        details:
+                            "Expected: adultContentBlocked (Bool), blockedDomains (List<String>)"
+                    ))
+                return
+            }
+            methods.setWebContentBlocking(adultContentBlocked: adultContentBlocked, blockedDomains: blockedDomains, result: result)
+        case MethodName.DISABLE_APPS_BLOCKING:
+            methods.disableAppsBlocking(result: result)
+        case MethodName.DISABLE_WEB_DOMAINS_BLOCKING:
+            methods.disableWebDomainsBlocking(result: result)
+        case MethodName.DISABLE_ALL_BLOCKING:
+            methods.disableAllBlocking(result: result)
+        case MethodName.SHOW_FAMILY_ACTIVITY_PICKER:
+            guard let arguments = call.arguments as? [String: Any] else {
+                result(
+                    FlutterError(
+                        code: "INVALID_ARGUMENTS",
+                        message: "Invalid arguments provided to \(MethodName.SHOW_FAMILY_ACTIVITY_PICKER)",
+                        details: nil
+                    ))
+                return
+            }
+            methods.showFamilyActivityPicker(arguments: arguments, result: result)
+         case MethodName.UNBLOCK_APPS:
             guard let arguments = call.arguments as? [String: Any] else {
                 result(
                     FlutterError(
@@ -108,25 +129,8 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
             methods.setAdultContentBlocking(isEnabled: enabled, result: result)
         case MethodName.IS_ADULT_CONTENT_BLOCKED:
             methods.isAdultContentBlocked(result: result)
-        case MethodName.BLOCK_WEB_DOMAINS:
-            guard let arguments = call.arguments as? [String: Any],
-                  let adultContentBlocked = arguments[Argument.IS_ADULT_CONTENT_BLOCKED] as? Bool,
-                  let blockedDomains = arguments[Argument.BLOCKED_WEB_DOMAINS] as? [String]
-            else {
-                result(
-                    FlutterError(
-                        code: "INVALID_ARGUMENTS",
-                        message: "Invalid arguments provided to blockWebDomains",
-                        details:
-                            "Expected: adultContentBlocked (Bool), blockedDomains (List<String>)"
-                    ))
-                return
-            }
-            methods.setWebContentBlocking(adultContentBlocked: adultContentBlocked, blockedDomains: blockedDomains, result: result)
         case MethodName.GET_WEB_CONTENT_BLOCKING:
             methods.getWebContentBlocking(result: result)
-        case MethodName.DISABLE_ALL_BLOCKING:
-            methods.disableAllBlocking(result: result)
         default:
             result(FlutterMethodNotImplemented)
         }

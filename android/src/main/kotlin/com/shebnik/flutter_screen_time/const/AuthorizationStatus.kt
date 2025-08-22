@@ -1,6 +1,6 @@
 package com.shebnik.flutter_screen_time.const
 
-enum class AUTHORIZATION_STATUS {
+enum class AuthorizationStatus {
     NOT_DETERMINED,
     APPROVED,
     DENIED

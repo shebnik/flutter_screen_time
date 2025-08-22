@@ -74,8 +74,6 @@ class DomainBlockingAccessibilityService : AccessibilityService() {
 
         const val ACTION_START_BLOCKING = "com.shebnik.flutter_screen_time.START_DOMAIN_BLOCKING"
         const val ACTION_STOP_BLOCKING = "com.shebnik.flutter_screen_time.STOP_DOMAIN_BLOCKING"
-        const val ACTION_UPDATE_WEB_DOMAINS =
-            "com.shebnik.flutter_screen_time.UPDATE_BLOCKED_DOMAINS"
 
         fun isServiceRunning(context: Context): Boolean {
             val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -151,12 +149,11 @@ class DomainBlockingAccessibilityService : AccessibilityService() {
         when (intent.action) {
             ACTION_START_BLOCKING -> startDomainBlocking(intent)
             ACTION_STOP_BLOCKING -> stopDomainBlocking()
-            ACTION_UPDATE_WEB_DOMAINS -> updateBlockedDomains(intent)
         }
     }
 
     private fun startDomainBlocking(intent: Intent) {
-        blockedDomains = intent.getStringArrayListExtra(Argument.BUNDLE_IDS) ?: emptyList()
+        blockedDomains = intent.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: emptyList()
         layoutName =
             intent.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME) ?: DEFAULT_LAYOUT_NAME
         callerPackageName =
@@ -428,20 +425,6 @@ class DomainBlockingAccessibilityService : AccessibilityService() {
         stopForeground(true)
         currentUrl = null
         Log.d(TAG, "Domain blocking stopped")
-    }
-
-    private fun updateBlockedDomains(intent: Intent) {
-        blockedDomains = intent.getStringArrayListExtra(Argument.BUNDLE_IDS) ?: emptyList()
-        Log.d(TAG, "Updated blocked domains: $blockedDomains")
-
-        // Re-check current URL if we have one
-        currentUrl?.let { url ->
-            if (isBlockedDomain(url)) {
-                showOverlay()
-            } else {
-                hideOverlay()
-            }
-        }
     }
 
     private fun showOverlay() {

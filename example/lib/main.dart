@@ -47,7 +47,7 @@ class _MyAppState extends State<MyApp> {
   List<AppCategory> categories = [];
   Map<AppCategory, Set<InstalledApp>> selectedApps = {};
 
-  var selectedWebDomains = [
+  List<String> selectedWebDomains = [
     'facebook.com',
     'twitter.com',
     'instagram.com',
@@ -188,7 +188,7 @@ class _MyAppState extends State<MyApp> {
         .toList();
 
     if (isBlockingApps) {
-      await _flutterScreenTimePlugin.stopBlockingApps();
+      await _flutterScreenTimePlugin.disableAppsBlocking();
     } else {
       await _flutterScreenTimePlugin.blockApps(
         bundleIds: bundleIds,
@@ -205,7 +205,7 @@ class _MyAppState extends State<MyApp> {
       return;
     }
     if (isBlockingWebDomains) {
-      await _flutterScreenTimePlugin.stopBlockingWebDomains();
+      await _flutterScreenTimePlugin.disableWebDomainsBlocking();
     } else {
       await _flutterScreenTimePlugin.blockWebDomains(
         webDomains: selectedWebDomains,

@@ -3,6 +3,7 @@ import 'package:flutter_screen_time/src/model/android/android_permission_type.da
 import 'package:flutter_screen_time/src/model/android/app_category.dart';
 import 'package:flutter_screen_time/src/model/android/installed_app.dart';
 import 'package:flutter_screen_time/src/model/authorization_status.dart';
+import 'package:flutter_screen_time/src/model/ios/family_activity_selection.dart';
 import 'package:flutter_screen_time/src/model/ios/plugin_configuration.dart';
 
 export 'package:flutter_screen_time/src/model/android/android_permission_type.dart';
@@ -11,7 +12,6 @@ export 'package:flutter_screen_time/src/model/android/installed_app.dart';
 export 'package:flutter_screen_time/src/model/authorization_status.dart';
 
 class FlutterScreenTime {
-
   // Static configuration state
   static PluginConfiguration? _globalConfiguration;
   static bool _isConfigured = false;
@@ -20,7 +20,7 @@ class FlutterScreenTime {
   ///
   /// This is a static method that configures the plugin globally.
   /// All instances of FlutterScreenTime will use this configuration.
-  /// 
+  ///
   /// [logFilePath] specifies where to store plugin logs (optional)
   ///
   /// Returns a [PluginConfiguration] object indicating success or failure
@@ -41,19 +41,56 @@ class FlutterScreenTime {
   /// Check if the plugin has been configured globally
   static bool get isConfigured => _isConfigured;
 
+  /// On iOS requests permission for Screen Time API.
+  ///
+  /// On Android, it requests permission for [AndroidPermissionType].
+  ///
+  /// Returns true if permission is granted, false otherwise.
+  Future<bool> requestPermission({
+    AndroidPermissionType? permissionType,
+  }) {
+    return FlutterScreenTimePlatform.instance.requestPermission(
+      permissionType: permissionType,
+    );
+  }
+
+  /// On iOS, it checks the authorization status for Screen Time API.
+  ///
+  /// On Android, it checks the authorization status for 
+  /// [AndroidPermissionType].
+  ///
+  /// Returns the current [AuthorizationStatus].
   Future<AuthorizationStatus> authorizationStatus({
-    AndroidPermissionType permissionType = AndroidPermissionType.appUsage,
+    AndroidPermissionType? permissionType,
   }) {
     return FlutterScreenTimePlatform.instance.authorizationStatus(
       permissionType: permissionType,
     );
   }
 
-  Future<bool> requestPermission({
-    AndroidPermissionType permissionType = AndroidPermissionType.appUsage,
+  /// Block specific apps indefinitely
+  ///
+  /// On iOS, [iOSSelection] is family activity selection, could be retrieved by
+  /// calling method `getFamilyActivitySelection`.
+  ///
+  /// On Android, [androidBundleIds] specifies the list of app bundle IDs to 
+  /// block.
+  /// [androidLayoutName] Custom layout for android overlay.
+  /// [androidNotificationTitle] Custom title for the android notification.
+  /// [androidNotificationBody] Custom body for the android notification.
+  Future<bool> blockApps({
+    FamilyActivitySelection? iOSSelection,
+    List<String>? androidBundleIds,
+    String? androidLayoutName,
+    String? androidNotificationTitle,
+    String? androidNotificationBody,
   }) {
-    return FlutterScreenTimePlatform.instance.requestPermission(
-      permissionType: permissionType,
+    return FlutterScreenTimePlatform.instance.blockApps(
+      androidBundleIds: androidBundleIds,
+      iOSSelection: iOSSelection,
+      androidLayoutName: androidLayoutName,
+      androidNotificationTitle: androidNotificationTitle,
+      androidNotificationBody: androidNotificationBody,
     );
   }
 
@@ -73,21 +110,7 @@ class FlutterScreenTime {
     return categorized;
   }
 
-  Future<bool> blockApps({
-    List<String> bundleIds = const <String>[],
-    String? layoutName,
-    String? notificationTitle,
-    String? notificationBody,
-  }) {
-    return FlutterScreenTimePlatform.instance.blockAndroidApps(
-      bundleIds: bundleIds,
-      layoutName: layoutName,
-      notificationTitle: notificationTitle,
-      notificationBody: notificationBody,
-    );
-  }
-
-  Future<bool> stopBlockingApps() {
+  Future<bool> disableAppsBlocking() {
     return FlutterScreenTimePlatform.instance.stopBlockingAndroidApps();
   }
 
@@ -113,8 +136,8 @@ class FlutterScreenTime {
     );
   }
 
-  Future<bool> stopBlockingWebDomains() {
-    return FlutterScreenTimePlatform.instance.stopBlockingWebDomains();
+  Future<bool> disableWebDomainsBlocking() {
+    return FlutterScreenTimePlatform.instance.disableWebDomainsBlocking();
   }
 
   Future<bool> updateBlockedWebDomains(List<String> webDomains) {

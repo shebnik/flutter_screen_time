@@ -1,12 +1,7 @@
-/// Represents the possible authorization statuses for Screen Time API access
+/// Represents the possible authorization statuses
 enum AuthorizationStatus {
-  /// The user has not yet been asked for Screen Time authorization
   notDetermined('notDetermined'),
-
-  /// The user has denied Screen Time authorization
   denied('denied'),
-
-  /// The user has granted Screen Time authorization
   approved('approved');
 
   const AuthorizationStatus(this.value);
@@ -22,7 +17,7 @@ enum AuthorizationStatus {
     );
   }
 
-  /// Whether the user is authorized to use Screen Time features
+  /// Whether the user is authorized
   bool get isAuthorized => this == AuthorizationStatus.approved;
 
   /// Whether authorization can be requested (not denied or already authorized)

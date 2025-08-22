@@ -86,15 +86,37 @@ class FlutterScreenTimeMethod {
             }
         }
     }
-    
-    func disableAllBlocking(result: @escaping FlutterResult) {
+
+    func disableAppsBlocking(result: @escaping FlutterResult) {
         // Check authorization first
         if(!checkAuthorization(result: result)) {return}
         logInfo("🔓 Encouraging all apps - removing restrictions")
         
         // Clear all selections and encourage all apps
-        FamilyControlsModel.shared.encourageAll()
+        FamilyControlsModel.shared.encourageAllApps()
         logSuccess("All apps encouraged and restrictions removed")
+        result(true)
+    }
+
+    func disableWebDomainsBlocking(result: @escaping FlutterResult) {
+        // Check authorization first
+        if(!checkAuthorization(result: result)) {return}
+        logInfo("🔓 Encouraging all web domains - removing restrictions")
+
+        // Clear all selections and encourage all web domains
+        FamilyControlsModel.shared.encourageAllWebDomains()
+        logSuccess("All web domains encouraged and restrictions removed")
+        result(true)
+    }
+    
+    func disableAllBlocking(result: @escaping FlutterResult) {
+        // Check authorization first
+        if(!checkAuthorization(result: result)) {return}
+        logInfo("🔓 Encouraging all apps and web domains - removing restrictions")
+
+        // Clear all selections and encourage all apps
+        FamilyControlsModel.shared.encourageAll()
+        logSuccess("All apps and web domains encouraged and restrictions removed")
         result(true)
     }
     

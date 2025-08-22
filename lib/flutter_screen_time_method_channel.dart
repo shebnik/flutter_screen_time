@@ -8,6 +8,7 @@ import 'package:flutter_screen_time/src/const/method_name.dart';
 import 'package:flutter_screen_time/src/model/android/android_permission_type.dart';
 import 'package:flutter_screen_time/src/model/android/installed_app.dart';
 import 'package:flutter_screen_time/src/model/authorization_status.dart';
+import 'package:flutter_screen_time/src/model/ios/family_activity_selection.dart';
 import 'package:flutter_screen_time/src/model/ios/plugin_configuration.dart';
 
 class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
@@ -40,8 +41,21 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   }
 
   @override
+  Future<bool> requestPermission({
+    AndroidPermissionType? permissionType,
+  }) async {
+    return await methodChannel.invokeMethod<bool>(
+          MethodName.requestPermission,
+          {
+            Argument.permissionType: permissionType?.name,
+          },
+        ) ??
+        false;
+  }
+
+  @override
   Future<AuthorizationStatus> authorizationStatus({
-    AndroidPermissionType? permissionType = AndroidPermissionType.appUsage,
+    AndroidPermissionType? permissionType,
   }) async {
     final status =
         await methodChannel.invokeMethod<String>(
@@ -55,13 +69,21 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   }
 
   @override
-  Future<bool> requestPermission({
-    AndroidPermissionType? permissionType = AndroidPermissionType.appUsage,
+  Future<bool> blockApps({
+    List<String>? androidBundleIds,
+    FamilyActivitySelection? iOSSelection,
+    String? androidLayoutName,
+    String? androidNotificationTitle,
+    String? androidNotificationBody,
   }) async {
     return await methodChannel.invokeMethod<bool>(
-          MethodName.requestPermission,
+          MethodName.blockApps,
           {
-            Argument.permissionType: permissionType?.name,
+            Argument.bundleIds: androidBundleIds,
+            Argument.selection: iOSSelection?.toMap(),
+            Argument.blockOverlayLayoutName: androidLayoutName,
+            Argument.notificationTitle: androidNotificationTitle,
+            Argument.notificationBody: androidNotificationBody,
           },
         ) ??
         false;
@@ -91,28 +113,9 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   }
 
   @override
-  Future<bool> blockAndroidApps({
-    List<String> bundleIds = const <String>[],
-    String? layoutName,
-    String? notificationTitle,
-    String? notificationBody,
-  }) async {
-    return await methodChannel.invokeMethod<bool>(
-          MethodName.blockApps,
-          {
-            Argument.bundleIds: bundleIds,
-            Argument.blockOverlayLayoutName: layoutName,
-            Argument.notificationTitle: notificationTitle,
-            Argument.notificationBody: notificationBody,
-          },
-        ) ??
-        false;
-  }
-
-  @override
   Future<bool> stopBlockingAndroidApps() async {
     return await methodChannel.invokeMethod<bool>(
-          MethodName.stopBlockingApps,
+          MethodName.disableAppsBlocking,
         ) ??
         false;
   }
@@ -139,20 +142,9 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   }
 
   @override
-  Future<bool> stopBlockingWebDomains() async {
+  Future<bool> disableWebDomainsBlocking() async {
     return await methodChannel.invokeMethod<bool>(
-          MethodName.stopBlockingWebDomains,
-        ) ??
-        false;
-  }
-
-  @override
-  Future<bool> updateBlockedWebDomains(List<String> webDomains) async {
-    return await methodChannel.invokeMethod<bool>(
-          MethodName.updateBlockedWebDomains,
-          {
-            Argument.blockedWebDomains: webDomains,
-          },
+          MethodName.disableWebDomainsBlocking,
         ) ??
         false;
   }
