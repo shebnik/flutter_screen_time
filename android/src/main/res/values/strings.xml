@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_blocked">App Blocked</string>
+    <string name="app_name">Flutter Screen Time</string>
+    <string name="accessibility_service_description">
+        This service monitors browser activity to block access to specified web domains.
+        It reads the content of browser windows to detect when blocked websites are accessed
+        and displays a blocking overlay. No personal data is collected or transmitted.
+    </string>
+</resources>
