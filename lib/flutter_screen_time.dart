@@ -1,15 +1,16 @@
-import 'package:flutter_screen_time/flutter_screen_time_platform_interface.dart';
+import 'package:flutter_screen_time/src/flutter_screen_time_android.dart';
+import 'package:flutter_screen_time/src/flutter_screen_time_ios.dart';
+import 'package:flutter_screen_time/src/flutter_screen_time_platform_interface.dart';
 import 'package:flutter_screen_time/src/model/android/android_permission_type.dart';
 import 'package:flutter_screen_time/src/model/android/app_category.dart';
 import 'package:flutter_screen_time/src/model/android/installed_app.dart';
 import 'package:flutter_screen_time/src/model/authorization_status.dart';
 import 'package:flutter_screen_time/src/model/ios/family_activity_selection.dart';
+import 'package:flutter_screen_time/src/model/ios/family_picker_configuration.dart';
 import 'package:flutter_screen_time/src/model/ios/plugin_configuration.dart';
+import 'package:flutter_screen_time/src/model/ios/web_content_blocking_configuration.dart';
 
-export 'package:flutter_screen_time/src/model/android/android_permission_type.dart';
-export 'package:flutter_screen_time/src/model/android/app_category.dart';
-export 'package:flutter_screen_time/src/model/android/installed_app.dart';
-export 'package:flutter_screen_time/src/model/authorization_status.dart';
+export 'package:flutter_screen_time/src/model/model.dart';
 
 class FlutterScreenTime {
   // Static configuration state
@@ -56,27 +57,31 @@ class FlutterScreenTime {
 
   /// On iOS, it checks the authorization status for Screen Time API.
   ///
-  /// On Android, it checks the authorization status for 
+  /// On Android, it checks the authorization status for
   /// [AndroidPermissionType].
   ///
   /// Returns the current [AuthorizationStatus].
   Future<AuthorizationStatus> authorizationStatus({
-    AndroidPermissionType? permissionType,
+    AndroidPermissionType? androidPermissionType,
   }) {
     return FlutterScreenTimePlatform.instance.authorizationStatus(
-      permissionType: permissionType,
+      androidPermissionType: androidPermissionType,
     );
   }
 
-  /// Block specific apps indefinitely
+  /// Block specific apps indefinitely.
   ///
-  /// On iOS, [iOSSelection] is family activity selection, could be retrieved by
-  /// calling method `getFamilyActivitySelection`.
+  /// On iOS [iOSSelection] is family activity selection containing encoded
+  /// tokens, which could be retrieved after calling [showFamilyActivityPicker].
+  /// [iOSSelection] contains applicationTokens, categoryTokens, webDomainTokens
   ///
-  /// On Android, [androidBundleIds] specifies the list of app bundle IDs to 
+  /// On Android [androidBundleIds] specifies the list of app bundle IDs to
   /// block.
-  /// [androidLayoutName] Custom layout for android overlay.
+  ///
+  /// [androidLayoutName] Custom layout for android blocking overlay.
+  ///
   /// [androidNotificationTitle] Custom title for the android notification.
+  ///
   /// [androidNotificationBody] Custom body for the android notification.
   Future<bool> blockApps({
     FamilyActivitySelection? iOSSelection,
@@ -86,44 +91,30 @@ class FlutterScreenTime {
     String? androidNotificationBody,
   }) {
     return FlutterScreenTimePlatform.instance.blockApps(
-      androidBundleIds: androidBundleIds,
       iOSSelection: iOSSelection,
+      androidBundleIds: androidBundleIds,
       androidLayoutName: androidLayoutName,
       androidNotificationTitle: androidNotificationTitle,
       androidNotificationBody: androidNotificationBody,
     );
   }
 
-  Future<List<InstalledApp>> installedApps({
-    bool ignoreSystemApps = true,
-  }) {
-    return FlutterScreenTimePlatform.instance.getAndroidInstalledApps(
-      ignoreSystemApps: ignoreSystemApps,
-    );
-  }
-
-  Map<AppCategory, List<InstalledApp>> categorizeApps(List<InstalledApp> apps) {
-    final categorized = <AppCategory, List<InstalledApp>>{};
-    for (final app in apps) {
-      categorized.putIfAbsent(app.category, () => []).add(app);
-    }
-    return categorized;
-  }
-
-  Future<bool> disableAppsBlocking() {
-    return FlutterScreenTimePlatform.instance.stopBlockingAndroidApps();
-  }
-
-  /// Blocks the specified web domains.
+  /// Blocks the specified web domains indefinitely.
   ///
-  /// [webDomains] The list of web domains to block.
+  /// [webDomains] The list of web domains to block, 50 is the maximum for iOS.
+  ///
+  /// On iOS [isAdultWebsitesBlocked] specifies whether to block adult websites.
   ///
   /// Android specific parameters:
-  /// [layoutName] Custom layout for android overlay.
+  ///
+  /// [layoutName] Custom layout for android blocking overlay.
+  ///
   /// [notificationTitle] Custom title for the android notification.
+  ///
   /// [notificationBody] Custom body for the android notification.
   Future<bool> blockWebDomains({
     required List<String> webDomains,
+    bool isAdultWebsitesBlocked = false,
     String? layoutName,
     String? notificationTitle,
     String? notificationBody,
@@ -136,13 +127,137 @@ class FlutterScreenTime {
     );
   }
 
+  /// Disables all app blocking completely.
+  /// Returns true if successful, false otherwise.
+  Future<bool> disableAppsBlocking() {
+    return FlutterScreenTimePlatform.instance.disableAppsBlocking();
+  }
+
+  /// Disables all web domain blocking completely.
+  /// Returns true if successful, false otherwise.
   Future<bool> disableWebDomainsBlocking() {
     return FlutterScreenTimePlatform.instance.disableWebDomainsBlocking();
   }
 
-  Future<bool> updateBlockedWebDomains(List<String> webDomains) {
-    return FlutterScreenTimePlatform.instance.updateBlockedWebDomains(
-      webDomains,
+  /// Disables both app and web domain blocking completely.
+  /// Returns true if successful, false otherwise.
+  Future<bool> disableAllBlocking() async {
+    return FlutterScreenTimePlatform.instance.disableAllBlocking();
+  }
+
+  /// Android only
+  ///
+  /// Retrieves a list of installed apps on the Android device.
+  ///
+  /// [ignoreSystemApps] determines whether to include system apps in the
+  /// result.
+  ///
+  /// Returns a list of [InstalledApp].
+  Future<List<InstalledApp>> getAndroidInstalledApps({
+    bool ignoreSystemApps = true,
+  }) {
+    return FlutterScreenTimeAndroid().getAndroidInstalledApps(
+      ignoreSystemApps: ignoreSystemApps,
     );
+  }
+
+  /// Categorizes a list of Android [InstalledApp] by their [AppCategory].
+  Map<AppCategory, List<InstalledApp>> categorizeAndroidApps(
+    List<InstalledApp> apps,
+  ) {
+    final categorized = <AppCategory, List<InstalledApp>>{};
+    for (final app in apps) {
+      categorized.putIfAbsent(app.category, () => []).add(app);
+    }
+    return categorized;
+  }
+
+  /// iOS only
+  ///
+  /// Show the native iOS family activity picker to let users select
+  /// apps/categories to restrict.
+  ///
+  /// [familyPickerConfiguration] can be used to customize the appearance of
+  /// the picker
+  /// [selection] allows showing the picker with pre-selected apps/categories
+  ///
+  /// Returns the selected apps/categories if user saves, null if user cancels
+  /// or dismisses.
+  /// If user taps reset, it only clears the current selection without closing
+  /// the picker.
+  ///
+  /// Example:
+  /// ```dart
+  /// final selection = await flutterScreenTime.showFamilyActivityPicker();
+  /// if (selection != null) {
+  ///   // User saved a selection
+  ///   await flutterScreenTime.blockApps(iOSSelection: selection);
+  /// } else {
+  ///   // User cancelled or dismissed
+  /// }
+  /// ```
+  Future<FamilyActivitySelection?> showFamilyActivityPicker({
+    FamilyPickerConfiguration? familyPickerConfiguration,
+    FamilyActivitySelection? selection,
+  }) {
+    return FlutterScreenTimeIos().showFamilyActivityPicker(
+      familyPickerConfiguration: familyPickerConfiguration,
+      selection: selection,
+    );
+  }
+
+  /// iOS only
+  ///
+  /// Remove restrictions for specific apps/categories
+  /// [selection] contains the apps/categories to remove restrictions from
+  ///
+  /// This allows you to selectively remove restrictions without affecting other
+  /// blocked apps. Use this when you want to unblock specific apps while
+  /// keeping restrictions on others.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Remove restrictions only for selected apps
+  /// await flutterScreenTime.unblockApps(selectedApps);
+  /// ```
+  Future<bool> unblockApps(FamilyActivitySelection selection) {
+    return FlutterScreenTimeIos().unblockApps(selection);
+  }
+
+  /// iOS only
+  ///
+  /// Get the list of currently blocked apps/categories
+  /// Returns a FamilyActivitySelection with separated token types
+  Future<FamilyActivitySelection> getBlockedApps() async {
+    return FlutterScreenTimeIos().getBlockedApps();
+  }
+
+  /// iOS only
+  ///
+  /// Set the adult websites blocking
+  ///
+  /// Set [isEnabled] true to enable blocking, false to disable blocking
+  Future<bool> setAdultWebsitesBlocking({required bool isEnabled}) {
+    return FlutterScreenTimeIos().setAdultWebsitesBlocking(
+      isEnabled: isEnabled,
+    );
+  }
+
+  /// iOS only
+  ///
+  /// Get the current adult websites blocking status
+  ///
+  /// Returns true if adult websites are blocked, false otherwise.
+  Future<bool> isAdultWebsitesBlocked() {
+    return FlutterScreenTimeIos().isAdultWebsitesBlocked();
+  }
+
+  /// iOS only
+  ///
+  /// Returns a current [WebContentBlockingConfiguration] containing:
+  /// - isAdultWebsitesBlocked: bool
+  /// - blockedWebDomains: List[String]
+  Future<WebContentBlockingConfiguration?> getWebContentBlocking() {
+    return FlutterScreenTimeIos().getWebContentBlocking();
   }
 }

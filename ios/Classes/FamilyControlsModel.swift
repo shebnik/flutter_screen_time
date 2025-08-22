@@ -179,14 +179,14 @@ class FamilyControlsModel: ObservableObject {
     // MARK: - Web Content Blocking
     
     func setWebContentBlocking(
-        adultContentBlocked: Bool,
+        adultWebsitesBlocked: Bool,
         blockedDomains: [String] = []
     ) async throws {
         logInfo(
-            "🔧 Setting web content blocking - adult: \(adultContentBlocked), blocked: \(blockedDomains.count)"
+            "🔧 Setting web content blocking - adult: \(adultWebsitesBlocked), blocked: \(blockedDomains.count)"
         )
         
-        if adultContentBlocked {
+        if adultWebsitesBlocked {
             if !blockedDomains.isEmpty {
                 // Use auto() with additional blocked domains
                 let webDomains = Set(blockedDomains.map { WebDomain(domain: $0) })
@@ -196,7 +196,7 @@ class FamilyControlsModel: ObservableObject {
                     "🚫 Adult content filter enabled with \(blockedDomains.count) additional blocked domains"
                 )
             } else {
-                // Just adult content blocking
+                // Just adult websites blocking
                 store.webContent.blockedByFilter = WebContentSettings.FilterPolicy.auto()
                 logInfo("🚫 Adult content filter enabled")
             }
@@ -238,25 +238,25 @@ class FamilyControlsModel: ObservableObject {
         // Use the unified method
         Task {
             try? await setWebContentBlocking(
-                adultContentBlocked: enabled,
+                adultWebsitesBlocked: enabled,
                 blockedDomains: existingDomains
             )
         }
     }
     
     func getAdultWebsiteBlocking() -> Bool {
-        // Check if adult content is enabled by examining the filter policy
+        // Check if adult websites is enabled by examining the filter policy
         let currentFilter = store.webContent.blockedByFilter
-        let adultContentBlocked: Bool
+        let adultWebsitesBlocked: Bool
         
         if case .auto = currentFilter {
-            adultContentBlocked = true  // Adult content filter is active
+            adultWebsitesBlocked = true  // Adult content filter is active
         } else {
-            adultContentBlocked = false  // Only specific domains or no filtering
+            adultWebsitesBlocked = false  // Only specific domains or no filtering
         }
         
-        logInfo("📋 Adult website blocking status: \(adultContentBlocked)")
-        return adultContentBlocked
+        logInfo("📋 Adult website blocking status: \(adultWebsitesBlocked)")
+        return adultWebsitesBlocked
     }
     
     func getWebContentBlocking() async throws -> [String: Any] {
@@ -265,34 +265,34 @@ class FamilyControlsModel: ObservableObject {
         // Get current filter policy from the store
         let currentFilter = store.webContent.blockedByFilter
         
-        var adultContentBlocked = false
+        var adultWebsitesBlocked = false
         var blockedDomains: [String] = []
         let isFilterActive = currentFilter != WebContentSettings.FilterPolicy.none
         
         // Extract configuration based on filter policy
         switch currentFilter {
         case .auto(let webDomains, except: _):
-            adultContentBlocked = true
+            adultWebsitesBlocked = true
             blockedDomains = webDomains.map { $0.domain ?? "" }.filter { !$0.isEmpty }
         case .specific(let webDomains):
-            adultContentBlocked = false
+            adultWebsitesBlocked = false
             blockedDomains = webDomains.map { $0.domain ?? "" }.filter { !$0.isEmpty }
         case .none:
-            adultContentBlocked = false
+            adultWebsitesBlocked = false
             blockedDomains = []
         @unknown default:
-            adultContentBlocked = false
+            adultWebsitesBlocked = false
             blockedDomains = []
         }
         
         let result: [String: Any] = [
-            Argument.IS_ADULT_CONTENT_BLOCKED: adultContentBlocked,
+            Argument.IS_ADULT_WEBSITES_BLOCKED: adultWebsitesBlocked,
             Argument.BLOCKED_WEB_DOMAINS: blockedDomains,
             Argument.IS_WEB_FILTER_ACTIVE: isFilterActive,
         ]
         
         logInfo(
-            "📋 Current web content blocking - adult: \(adultContentBlocked), blocked: \(blockedDomains.count), active: \(isFilterActive)"
+            "📋 Current web content blocking - adult: \(adultWebsitesBlocked), blocked: \(blockedDomains.count), active: \(isFilterActive)"
         )
         
         return result

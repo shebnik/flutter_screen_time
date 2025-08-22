@@ -23,7 +23,7 @@
     <!-- Notifications Permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Accessibility Permission for Domain Blocking -->
+    <!-- Accessibility Permission for Websites Blocking -->
     <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE"
         tools:ignore="ProtectedPermissions" />
 
@@ -35,10 +35,10 @@
             android:exported="false"
             android:foregroundServiceType="specialUse" />
 
-        <!-- Domain Blocking Accessibility Service -->
+        <!-- Websites Blocking Accessibility Service -->
         <service
-            android:name=".service.DomainBlockingAccessibilityService"
-            android:label="Domain Blocking Service"
+            android:name=".service.WebsitesBlockingAccessibilityService"
+            android:label="Websites Blocking Service"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="false">
             <intent-filter>

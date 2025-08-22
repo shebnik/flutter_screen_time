@@ -18,7 +18,7 @@ class MethodName {
   static const showFamilyActivityPicker = 'showFamilyActivityPicker';
   static const unblockApps = 'unblockApps';
   static const getBlockedApps = 'getBlockedApps';
-  static const setAdultContentBlocking = 'setAdultContentBlocking';
-  static const isAdultContentBlocked = 'isAdultContentBlocked';
+  static const setAdultWebsitesBlocking = 'setAdultWebsitesBlocking';
+  static const isAdultWebsitesBlocked = 'isAdultWebsitesBlocked';
   static const getWebContentBlocking = 'getWebContentBlocking';
 }

@@ -37,8 +37,8 @@ class FlutterScreenTimeMethod {
             if (!checkAuthorization(result: result)) {return}
             
             // Extract UI configuration and pre-selected apps from arguments
-            let uiConfigArgs = arguments
-            
+            let uiConfigArgs = arguments?[Argument.FAMILY_PICKER_CONFIGURATION] as? [String: Any] ?? [:]
+
             // Handle pre-selected apps if provided, otherwise start with empty selection
             if let preSelectedAppsData = arguments?[Argument.SELECTION] as? [String: Any] {
                 do {
@@ -74,7 +74,7 @@ class FlutterScreenTimeMethod {
             if (!checkAuthorization(result: result)) {return}
             
             do {
-                try await discourageSelection(with: arguments)
+                try await discourageSelection(with: arguments[Argument.SELECTION] as? [String: Any] ?? [:])
                 result(true)
             } catch {
                 result(
@@ -148,7 +148,7 @@ class FlutterScreenTimeMethod {
         result(discouragedApps)
     }
     
-    func setAdultContentBlocking(isEnabled: Bool, result: @escaping FlutterResult) {
+    func setAdultWebsitesBlocking(isEnabled: Bool, result: @escaping FlutterResult) {
         // Check authorization first
         if(!checkAuthorization(result: result)) {return}
         
@@ -157,7 +157,7 @@ class FlutterScreenTimeMethod {
         result(true)
     }
     
-    func isAdultContentBlocked(result: @escaping FlutterResult) {
+    func isAdultWebsitesBlocked(result: @escaping FlutterResult) {
         // Check authorization first
         if(!checkAuthorization(result: result)) {return}
         let isBlocked = FamilyControlsModel.shared.getAdultWebsiteBlocking()
@@ -165,7 +165,7 @@ class FlutterScreenTimeMethod {
         result(isBlocked)
     }
     
-    func setWebContentBlocking(adultContentBlocked: Bool, blockedDomains: [String], result: @escaping FlutterResult) {
+    func setWebContentBlocking(adultWebsitesBlocked: Bool, blockedDomains: [String], result: @escaping FlutterResult) {
         // Check authorization first
         if(!checkAuthorization(result: result)) {return}
         
@@ -182,10 +182,10 @@ class FlutterScreenTimeMethod {
         Task {
             do {
                 logInfo(
-                    "Setting web content blocking - adult content blocked: \(adultContentBlocked), blocked domains: \(blockedDomains.count)"
+                    "Setting web content blocking - adult websites blocked: \(adultWebsitesBlocked), blocked domains: \(blockedDomains.count)"
                 )
                 try await FamilyControlsModel.shared.setWebContentBlocking(
-                    adultContentBlocked: adultContentBlocked,
+                    adultWebsitesBlocked: adultWebsitesBlocked,
                     blockedDomains: blockedDomains
                 )
                 logSuccess("Web content blocking set successfully")
@@ -211,7 +211,7 @@ class FlutterScreenTimeMethod {
                 let webContentConfig = try await FamilyControlsModel.shared
                     .getWebContentBlocking()
                 logInfo(
-                    "Get web content blocking completed - adult content: \(webContentConfig[Argument.IS_ADULT_CONTENT_BLOCKED] as? Bool ?? false), blocked domains: \((webContentConfig[Argument.BLOCKED_WEB_DOMAINS] as? [String])?.count ?? 0))"
+                    "Get web content blocking completed - adult websites: \(webContentConfig[Argument.IS_ADULT_WEBSITES_BLOCKED] as? Bool ?? false), blocked domains: \((webContentConfig[Argument.BLOCKED_WEB_DOMAINS] as? [String])?.count ?? 0))"
                 )
                 result(webContentConfig)
             } catch {

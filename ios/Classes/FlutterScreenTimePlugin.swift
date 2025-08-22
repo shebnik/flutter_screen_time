@@ -71,7 +71,7 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
             methods.blockApps(arguments: arguments, result: result)
         case MethodName.BLOCK_WEB_DOMAINS:
             guard let arguments = call.arguments as? [String: Any],
-                  let adultContentBlocked = arguments[Argument.IS_ADULT_CONTENT_BLOCKED] as? Bool,
+                  let adultWebsitesBlocked = arguments[Argument.IS_ADULT_WEBSITES_BLOCKED] as? Bool,
                   let blockedDomains = arguments[Argument.BLOCKED_WEB_DOMAINS] as? [String]
             else {
                 result(
@@ -79,11 +79,11 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
                         code: "INVALID_ARGUMENTS",
                         message: "Invalid arguments provided to blockWebDomains",
                         details:
-                            "Expected: adultContentBlocked (Bool), blockedDomains (List<String>)"
+                            "Expected: adultWebsitesBlocked (Bool), blockedDomains (List<String>)"
                     ))
                 return
             }
-            methods.setWebContentBlocking(adultContentBlocked: adultContentBlocked, blockedDomains: blockedDomains, result: result)
+            methods.setWebContentBlocking(adultWebsitesBlocked: adultWebsitesBlocked, blockedDomains: blockedDomains, result: result)
         case MethodName.DISABLE_APPS_BLOCKING:
             methods.disableAppsBlocking(result: result)
         case MethodName.DISABLE_WEB_DOMAINS_BLOCKING:
@@ -114,7 +114,7 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
             methods.unblockApps(arguments: arguments, result: result)
         case MethodName.GET_BLOCKED_APPS:
             methods.getBlockedApps(result: result)
-        case MethodName.SET_ADULT_CONTENT_BLOCKING:
+        case MethodName.SET_ADULT_WEBSITES_BLOCKING:
             guard let arguments = call.arguments as? [String: Any],
                   let enabled = arguments[Argument.IS_ENABLED] as? Bool
             else {
@@ -126,9 +126,9 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
                     ))
                 return
             }
-            methods.setAdultContentBlocking(isEnabled: enabled, result: result)
-        case MethodName.IS_ADULT_CONTENT_BLOCKED:
-            methods.isAdultContentBlocked(result: result)
+            methods.setAdultWebsitesBlocking(isEnabled: enabled, result: result)
+        case MethodName.IS_ADULT_WEBSITES_BLOCKED:
+            methods.isAdultWebsitesBlocked(result: result)
         case MethodName.GET_WEB_CONTENT_BLOCKING:
             methods.getWebContentBlocking(result: result)
         default:

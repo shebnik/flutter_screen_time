@@ -5,14 +5,14 @@ import 'package:flutter/foundation.dart';
 class WebContentBlockingConfiguration {
   /// Creates a web content blocking configuration
   const WebContentBlockingConfiguration({
-    required this.isAdultContentBlocked,
+    required this.isAdultWebsitesBlocked,
     this.blockedWebDomains = const [],
   });
 
   /// Create from a map returned by the platform
   factory WebContentBlockingConfiguration.fromMap(Map<String, dynamic> map) {
     return WebContentBlockingConfiguration(
-      isAdultContentBlocked: (map['isAdultContentBlocked'] as bool?) ?? false,
+      isAdultWebsitesBlocked: (map['isAdultWebsitesBlocked'] as bool?) ?? false,
       blockedWebDomains:
           (map['blockedWebDomains'] as List<dynamic>?)
               ?.map((e) => e.toString())
@@ -21,8 +21,8 @@ class WebContentBlockingConfiguration {
     );
   }
 
-  /// Whether adult content filtering is blocked
-  final bool isAdultContentBlocked;
+  /// Whether adult websites filtering is blocked
+  final bool isAdultWebsitesBlocked;
 
   /// List of specifically blocked domains
   final List<String> blockedWebDomains;
@@ -30,19 +30,19 @@ class WebContentBlockingConfiguration {
   /// Convert to map for platform communication
   Map<String, dynamic> toMap() {
     return {
-      'isAdultContentBlocked': isAdultContentBlocked,
+      'isAdultWebsitesBlocked': isAdultWebsitesBlocked,
       'blockedWebDomains': blockedWebDomains,
     };
   }
 
   /// Create a copy with optional parameter overrides
   WebContentBlockingConfiguration copyWith({
-    bool? isAdultContentBlocked,
+    bool? isAdultWebsitesBlocked,
     List<String>? blockedWebDomains,
   }) {
     return WebContentBlockingConfiguration(
-      isAdultContentBlocked:
-          isAdultContentBlocked ?? this.isAdultContentBlocked,
+      isAdultWebsitesBlocked:
+          isAdultWebsitesBlocked ?? this.isAdultWebsitesBlocked,
       blockedWebDomains: blockedWebDomains ?? this.blockedWebDomains,
     );
   }
@@ -51,18 +51,18 @@ class WebContentBlockingConfiguration {
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is WebContentBlockingConfiguration &&
-        other.isAdultContentBlocked == isAdultContentBlocked &&
+        other.isAdultWebsitesBlocked == isAdultWebsitesBlocked &&
         listEquals(other.blockedWebDomains, blockedWebDomains);
   }
 
   @override
   int get hashCode {
-    return isAdultContentBlocked.hashCode ^ blockedWebDomains.hashCode;
+    return isAdultWebsitesBlocked.hashCode ^ blockedWebDomains.hashCode;
   }
 
   @override
   String toString() {
-    return 'WebContentBlockingConfiguration(isAdultContentBlocked: '
-    '$isAdultContentBlocked, blockedWebDomains: $blockedWebDomains)';
+    return 'WebContentBlockingConfiguration(isAdultWebsitesBlocked: '
+        '$isAdultWebsitesBlocked, blockedWebDomains: $blockedWebDomains)';
   }
 }

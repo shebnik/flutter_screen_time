@@ -36,12 +36,12 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final _flutterScreenTimePlugin = FlutterScreenTime();
 
-  final Map<AndroidPermissionType, AuthorizationStatus> _permissionStatus =
-      Map.fromEntries(
-        AndroidPermissionType.values.map(
-          (type) => MapEntry(type, AuthorizationStatus.notDetermined),
-        ),
-      );
+  final Map<AndroidPermissionType, AuthorizationStatus>
+  _androidPermissionStatus = Map.fromEntries(
+    AndroidPermissionType.values.map(
+      (type) => MapEntry(type, AuthorizationStatus.notDetermined),
+    ),
+  );
 
   Map<AppCategory, List<InstalledApp>> categorizedApps = {};
   List<AppCategory> categories = [];
@@ -74,9 +74,9 @@ class _MyAppState extends State<MyApp> {
   Future<void> determinePermissions() async {
     for (final type in AndroidPermissionType.values) {
       try {
-        _permissionStatus[type] = await _flutterScreenTimePlugin
+        _androidPermissionStatus[type] = await _flutterScreenTimePlugin
             .authorizationStatus(
-              permissionType: type,
+              androidPermissionType: type,
             );
       } on PlatformException catch (e) {
         debugPrintStack(
@@ -89,9 +89,9 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> loadAppsList() async {
     try {
-      final apps = await _flutterScreenTimePlugin.installedApps();
+      final apps = await _flutterScreenTimePlugin.getAndroidInstalledApps();
       debugPrint('Installed apps: ${apps.length}');
-      categorizedApps = _flutterScreenTimePlugin.categorizeApps(apps);
+      categorizedApps = _flutterScreenTimePlugin.categorizeAndroidApps(apps);
       categories = categorizedApps.keys.toList()
         ..sort((a, b) => a.name.compareTo(b.name));
     } on PlatformException catch (e) {
@@ -123,7 +123,7 @@ class _MyAppState extends State<MyApp> {
 
     if (mounted) {
       setState(() {
-        _permissionStatus[type] = result
+        _androidPermissionStatus[type] = result
             ? AuthorizationStatus.approved
             : AuthorizationStatus.denied;
       });
@@ -132,7 +132,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<bool> checkAppBlockingPermissions() async {
     for (final type
-        in _permissionStatus.entries
+        in _androidPermissionStatus.entries
             .where(
               (e) => [
                 AndroidPermissionType.appUsage,
@@ -144,7 +144,7 @@ class _MyAppState extends State<MyApp> {
       await requestPermission(type.key);
     }
 
-    return _permissionStatus.entries
+    return _androidPermissionStatus.entries
         .where(
           (e) => [
             AndroidPermissionType.appUsage,
@@ -158,18 +158,19 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<bool> checkDomainBlockingPermissions() async {
-    debugPrint('Current permissions: $_permissionStatus');
-    for (final type in _permissionStatus.entries.where(
+    debugPrint('Current permissions: $_androidPermissionStatus');
+    for (final type in _androidPermissionStatus.entries.where(
       (e) => e.value != AuthorizationStatus.approved,
     )) {
       debugPrint('Requesting permission for ${type.key}');
       await requestPermission(type.key);
       debugPrint(
-        'Permission for ${type.key.name} is now ${_permissionStatus[type.key]}',
+        'Permission for ${type.key.name} is now '
+        '${_androidPermissionStatus[type.key]}',
       );
     }
 
-    return _permissionStatus.values.every(
+    return _androidPermissionStatus.values.every(
       (e) => e == AuthorizationStatus.approved,
     );
   }
@@ -191,7 +192,7 @@ class _MyAppState extends State<MyApp> {
       await _flutterScreenTimePlugin.disableAppsBlocking();
     } else {
       await _flutterScreenTimePlugin.blockApps(
-        bundleIds: bundleIds,
+        androidBundleIds: bundleIds,
       );
     }
 
@@ -258,7 +259,7 @@ class _MyAppState extends State<MyApp> {
           ],
         ),
         const SizedBox(height: 8),
-        ..._permissionStatus.entries.map((entry) {
+        ..._androidPermissionStatus.entries.map((entry) {
           return ListTile(
             title: Text(entry.key.name),
             subtitle: Text(entry.value.name),

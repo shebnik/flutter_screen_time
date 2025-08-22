@@ -75,10 +75,10 @@ class BlockAppsService : Service() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
         stopAppMonitoring()
         hideOverlay()
         Log.d(TAG, "Service destroyed")
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? {

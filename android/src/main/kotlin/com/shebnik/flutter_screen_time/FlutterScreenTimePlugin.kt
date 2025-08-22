@@ -32,6 +32,10 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     private var pendingResult: Result? = null
     private var pendingPermissionType: PermissionType? = null
 
+    companion object {
+        const val TAG = "FlutterScreenTimePlugin"
+    }
+
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "flutter_screen_time")
         channel.setMethodCallHandler(this)
@@ -66,7 +70,10 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     context,
                     PermissionType.valueOf(permissionType.toEnumFormat())
                 )
-
+                Log.i(
+                    TAG,
+                    "Got authorizationStatus for ${permissionType}: ${response.name.toCamelCase()}"
+                )
                 result.success(response.name.toCamelCase())
             }
 

@@ -22,7 +22,7 @@ public class MethodName {
     public static let SHOW_FAMILY_ACTIVITY_PICKER = "showFamilyActivityPicker"
     public static let UNBLOCK_APPS = "unblockApps"
     public static let GET_BLOCKED_APPS = "getBlockedApps"
-    public static let SET_ADULT_CONTENT_BLOCKING = "setAdultContentBlocking"
-    public static let IS_ADULT_CONTENT_BLOCKED = "isAdultContentBlocked"
+    public static let SET_ADULT_WEBSITES_BLOCKING = "setAdultWebsitesBlocking"
+    public static let IS_ADULT_WEBSITES_BLOCKED = "isAdultWebsitesBlocked"
     public static let GET_WEB_CONTENT_BLOCKING = "getWebContentBlocking"
 }
