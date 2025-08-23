@@ -10,6 +10,8 @@ class Argument {
   static const String blockOverlayLayoutName = 'blockOverlayLayoutName';
   static const String notificationTitle = 'notificationTitle';
   static const String notificationBody = 'notificationBody';
+  static const String blockWebsitesOnlyInBrowsers =
+      'blockWebsitesOnlyInBrowsers';
 
   static const String blockOverlayLayoutPackage = 'blockOverlayLayoutPackage';
 

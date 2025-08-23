@@ -5,5 +5,5 @@
     android:canPerformGestures="false"
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_service_description"
-    android:notificationTimeout="50"
-    android:packageNames="com.android.chrome,com.chrome.beta,com.chrome.dev,com.chrome.canary,org.mozilla.firefox,org.mozilla.firefox_beta,com.microsoft.emmx,com.opera.browser,com.opera.browser.beta,com.opera.mini.native,com.sec.android.app.sbrowser,com.UCMobile.intl,com.brave.browser,org.chromium.webview_shell,com.kiwibrowser.browser,com.duckduckgo.mobile.android,com.samsung.android.sbrowser,com.vivaldi.browser" />
+    android:notificationTimeout="50" />
+    <!--    android:packageNames="com.android.chrome,com.chrome.beta,com.chrome.dev,com.chrome.canary,org.mozilla.firefox,org.mozilla.firefox_beta,com.microsoft.emmx,com.opera.browser,com.opera.browser.beta,com.opera.mini.native,com.sec.android.app.sbrowser,com.UCMobile.intl,com.brave.browser,org.chromium.webview_shell,com.kiwibrowser.browser,com.duckduckgo.mobile.android,com.samsung.android.sbrowser,com.vivaldi.browser" -->

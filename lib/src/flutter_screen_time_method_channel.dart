@@ -90,7 +90,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   Future<bool> blockWebDomains({
     required List<String> webDomains,
     bool isAdultWebsitesBlocked = false,
-    String? layoutName,
+    bool blockWebsitesOnlyInBrowsers = true,
     String? notificationTitle,
     String? notificationBody,
   }) async {
@@ -99,9 +99,9 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
           {
             Argument.blockedWebDomains: webDomains,
             Argument.isAdultWebsitesBlocked: isAdultWebsitesBlocked,
-            Argument.blockOverlayLayoutName: layoutName,
             Argument.notificationTitle: notificationTitle,
             Argument.notificationBody: notificationBody,
+            Argument.blockWebsitesOnlyInBrowsers: blockWebsitesOnlyInBrowsers,
           },
         ) ??
         false;

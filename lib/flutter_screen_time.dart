@@ -107,24 +107,24 @@ class FlutterScreenTime {
   /// On iOS [isAdultWebsitesBlocked] specifies whether to block adult websites.
   ///
   /// Android specific parameters:
-  ///
-  /// [layoutName] Custom layout for android blocking overlay.
-  ///
+  /// 
   /// [notificationTitle] Custom title for the android notification.
   ///
   /// [notificationBody] Custom body for the android notification.
+  ///
+  /// [blockWebsitesOnlyInBrowsers] If true, blocks websites only in browsers.
   Future<bool> blockWebDomains({
     required List<String> webDomains,
     bool isAdultWebsitesBlocked = false,
-    String? layoutName,
     String? notificationTitle,
     String? notificationBody,
+    bool blockWebsitesOnlyInBrowsers = true,
   }) {
     return FlutterScreenTimePlatform.instance.blockWebDomains(
       webDomains: webDomains,
-      layoutName: layoutName,
       notificationTitle: notificationTitle,
       notificationBody: notificationBody,
+      blockWebsitesOnlyInBrowsers: blockWebsitesOnlyInBrowsers,
     );
   }
 

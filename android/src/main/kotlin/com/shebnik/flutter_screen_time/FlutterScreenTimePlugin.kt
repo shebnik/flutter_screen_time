@@ -22,10 +22,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.util.Log
+import android.content.pm.PackageManager
 
 /** FlutterScreenTimePlugin */
 class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
-    PluginRegistry.ActivityResultListener {
+    PluginRegistry.ActivityResultListener, PluginRegistry.RequestPermissionsResultListener {
     private lateinit var channel: MethodChannel
     private lateinit var context: Context
     private var activity: Activity? = null
@@ -45,6 +46,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activity = binding.activity
         binding.addActivityResultListener(this)
+        binding.addRequestPermissionsResultListener(this)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
@@ -54,6 +56,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
         activity = binding.activity
         binding.addActivityResultListener(this)
+        binding.addRequestPermissionsResultListener(this)
     }
 
     override fun onDetachedFromActivity() {
@@ -146,16 +149,17 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             MethodName.BLOCK_WEB_DOMAINS -> {
                 val args = call.arguments as Map<*, *>
                 val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
-                val layoutName = args[Argument.BLOCK_OVERLAY_LAYOUT_NAME] as String?
                 val notificationTitle = args[Argument.NOTIFICATION_TITLE] as String?
                 val notificationBody = args[Argument.NOTIFICATION_BODY] as String?
+                val blockWebsitesOnlyInBrowsers =
+                    args[Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS] as Boolean?
 
                 val response = FlutterScreenTimeMethod.blockDomains(
                     context,
                     domains?.filterIsInstance<String>() ?: mutableListOf(),
-                    layoutName,
                     notificationTitle,
-                    notificationBody
+                    notificationBody,
+                    blockWebsitesOnlyInBrowsers
                 )
 
                 result.success(response)
@@ -179,7 +183,6 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         val permissionType = when (requestCode) {
             PermissionRequestCode.REQUEST_CODE_APP_USAGE -> PermissionType.APP_USAGE
             PermissionRequestCode.REQUEST_CODE_DRAW_OVERLAY -> PermissionType.DRAW_OVERLAY
-            PermissionRequestCode.REQUEST_CODE_NOTIFICATION -> PermissionType.NOTIFICATION
             PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_SETTINGS -> PermissionType.ACCESSIBILITY_SETTINGS
             else -> return false
         }
@@ -200,6 +203,30 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         }
 
         return true
+    }
+
+    // New method to handle runtime permission results
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ): Boolean {
+        if (requestCode == PermissionRequestCode.REQUEST_CODE_NOTIFICATION) {
+            val result = pendingResult
+            if (result != null && pendingPermissionType == PermissionType.NOTIFICATION) {
+                val isGranted = grantResults.isNotEmpty() &&
+                        grantResults[0] == PackageManager.PERMISSION_GRANTED
+
+                result.success(isGranted)
+                Log.d(TAG, "Notification permission result: $isGranted")
+
+                // Clear pending callbacks
+                pendingResult = null
+                pendingPermissionType = null
+            }
+            return true
+        }
+        return false
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {

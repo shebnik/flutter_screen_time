@@ -45,9 +45,9 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
   Future<bool> blockWebDomains({
     required List<String> webDomains,
     bool isAdultWebsitesBlocked = false,
-    String? layoutName,
     String? notificationTitle,
     String? notificationBody,
+    bool blockWebsitesOnlyInBrowsers = true,
   }) => throw UnimplementedError('blockWebDomains() has not been implemented.');
 
   Future<bool> disableAppsBlocking() => throw UnimplementedError(

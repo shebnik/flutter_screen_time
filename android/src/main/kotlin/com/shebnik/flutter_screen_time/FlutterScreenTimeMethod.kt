@@ -172,15 +172,15 @@ object FlutterScreenTimeMethod {
             PermissionType.NOTIFICATION -> {
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        val intent = Intent(
-                            Settings.ACTION_APP_NOTIFICATION_SETTINGS, packageUri
-                        )
-                        activity.startActivityForResult(
-                            intent, PermissionRequestCode.REQUEST_CODE_NOTIFICATION
+                        // Request runtime permission using ActivityCompat
+                        androidx.core.app.ActivityCompat.requestPermissions(
+                            activity,
+                            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                            PermissionRequestCode.REQUEST_CODE_NOTIFICATION
                         )
                         true
                     } else {
-                        false // Notification permission not needed for Android < 13
+                        true // Notification permission not needed for Android < 13
                     }
                 } catch (exception: Exception) {
                     exception.localizedMessage?.let { Log.e("requestPermission NOTIFICATION", it) }
@@ -230,7 +230,10 @@ object FlutterScreenTimeMethod {
                 for (bundleId in bundleIds) {
                     val packageName = bundleId.toString()
                     try {
-                        val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+                        val appInfo = packageManager.getApplicationInfo(
+                            packageName,
+                            PackageManager.GET_META_DATA
+                        )
 
                         // Apply filtering logic
                         val shouldInclude = if (ignoreSystemApps) {
@@ -250,16 +253,17 @@ object FlutterScreenTimeMethod {
                 }
             } else {
                 // Get all installed applications
-                val installedApplications = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    packageManager.getInstalledApplications(
-                        PackageManager.ApplicationInfoFlags.of(
-                            PackageManager.GET_META_DATA.toLong()
+                val installedApplications =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        packageManager.getInstalledApplications(
+                            PackageManager.ApplicationInfoFlags.of(
+                                PackageManager.GET_META_DATA.toLong()
+                            )
                         )
-                    )
-                } else {
-                    @Suppress("DEPRECATION")
-                    packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-                }
+                    } else {
+                        @Suppress("DEPRECATION")
+                        packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+                    }
 
                 if (ignoreSystemApps) {
                     val filtered = installedApplications.filter { app ->
@@ -400,9 +404,9 @@ object FlutterScreenTimeMethod {
     fun blockDomains(
         context: Context,
         domains: List<String>,
-        layoutName: String? = null,
         notificationTitle: String? = null,
-        notificationBody: String? = null
+        notificationBody: String? = null,
+        blockWebsitesOnlyInBrowsers: Boolean? = null
     ): Boolean {
         if (domains.isEmpty()) return false
 
@@ -411,13 +415,11 @@ object FlutterScreenTimeMethod {
 
             val callerPackageName = context.packageName
             putExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, callerPackageName)
-            putExtra(
-                Argument.BLOCK_OVERLAY_LAYOUT_NAME,
-                layoutName ?: WebsitesBlockingAccessibilityService.DEFAULT_LAYOUT_NAME
-            )
 
             putExtra(Argument.NOTIFICATION_TITLE, notificationTitle)
             putExtra(Argument.NOTIFICATION_BODY, notificationBody)
+
+            putExtra(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, blockWebsitesOnlyInBrowsers)
         }
 
         try {
