@@ -81,7 +81,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         "com.amazon.mShop.android.shopping", // Amazon
         "com.ebay.mobile", // eBay
         "com.paypal.android.p2pmobile", // PayPal
-        // Add more apps as needed
+        "org.telegram.messenger"
     )
 
     private enum class BrowserType {
