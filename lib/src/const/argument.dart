@@ -11,6 +11,7 @@ class Argument {
   static const String notificationTitle = 'notificationTitle';
   static const String notificationBody = 'notificationBody';
   static const String notificationIcon = 'notificationIcon';
+  static const String notificationGroupIcon = 'notificationGroupIcon';
   static const String blockWebsitesOnlyInBrowsers =
       'blockWebsitesOnlyInBrowsers';
 

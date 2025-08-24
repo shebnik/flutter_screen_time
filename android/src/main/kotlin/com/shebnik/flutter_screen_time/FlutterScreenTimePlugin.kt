@@ -129,6 +129,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val notificationTitle = args[Argument.NOTIFICATION_TITLE] as String?
                 val notificationBody = args[Argument.NOTIFICATION_BODY] as String?
                 val notificationIcon = args[Argument.NOTIFICATION_ICON] as String?
+                val notificationGroupIcon = args[Argument.NOTIFICATION_GROUP_ICON] as String?
 
                 val response = FlutterScreenTimeMethod.blockApps(
                     context,
@@ -136,7 +137,8 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     layoutName,
                     notificationTitle,
                     notificationBody,
-                    notificationIcon
+                    notificationIcon,
+                    notificationGroupIcon
                 )
 
                 result.success(response)
@@ -152,6 +154,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val notificationTitle = args[Argument.NOTIFICATION_TITLE] as String?
                 val notificationBody = args[Argument.NOTIFICATION_BODY] as String?
                 val notificationIcon = args[Argument.NOTIFICATION_ICON] as String?
+                val notificationGroupIcon = args[Argument.NOTIFICATION_GROUP_ICON] as String?
                 val blockWebsitesOnlyInBrowsers =
                     args[Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS] as Boolean?
 
@@ -161,6 +164,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     notificationTitle,
                     notificationBody,
                     notificationIcon,
+                    notificationGroupIcon,
                     blockWebsitesOnlyInBrowsers
                 )
 

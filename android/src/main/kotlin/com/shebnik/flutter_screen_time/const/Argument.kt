@@ -12,6 +12,7 @@ object Argument {
     const val NOTIFICATION_TITLE = "notificationTitle"
     const val NOTIFICATION_BODY = "notificationBody"
     const val NOTIFICATION_ICON = "notificationIcon"
+    const val NOTIFICATION_GROUP_ICON = "notificationGroupIcon"
     const val BLOCK_WEBSITES_ONLY_IN_BROWSERS = "blockWebsitesOnlyInBrowsers"
 
     const val BLOCK_OVERLAY_LAYOUT_PACKAGE = "blockOverlayLayoutPackage"

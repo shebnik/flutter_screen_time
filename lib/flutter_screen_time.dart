@@ -86,6 +86,9 @@ class FlutterScreenTime {
   /// [androidNotificationBody] Custom body for the android notification.
   ///
   /// [androidNotificationIcon] Custom icon for the android notification.
+  ///
+  /// [androidNotificationGroupIcon] Custom group icon for the android
+  /// notification.
   Future<bool> blockApps({
     FamilyActivitySelection? iOSSelection,
     List<String>? androidBundleIds,
@@ -93,6 +96,7 @@ class FlutterScreenTime {
     String? androidNotificationTitle,
     String? androidNotificationBody,
     String? androidNotificationIcon,
+    String? androidNotificationGroupIcon,
   }) {
     return FlutterScreenTimePlatform.instance.blockApps(
       iOSSelection: iOSSelection,
@@ -101,6 +105,7 @@ class FlutterScreenTime {
       androidNotificationTitle: androidNotificationTitle,
       androidNotificationBody: androidNotificationBody,
       androidNotificationIcon: androidNotificationIcon,
+      androidNotificationGroupIcon: androidNotificationGroupIcon,
     );
   }
 
@@ -119,12 +124,16 @@ class FlutterScreenTime {
   /// [androidNotificationIcon] Custom icon for the android notification.
   ///
   /// [blockWebsitesOnlyInBrowsers] If true, blocks websites only in browsers.
+  /// 
+  /// [androidNotificationGroupIcon] Custom group icon for the android 
+  /// notification.
   Future<bool> blockWebDomains({
     required List<String> webDomains,
     bool isAdultWebsitesBlocked = false,
     String? androidNotificationTitle,
     String? androidNotificationBody,
     String? androidNotificationIcon,
+    String? androidNotificationGroupIcon,
     bool blockWebsitesOnlyInBrowsers = true,
   }) {
     return FlutterScreenTimePlatform.instance.blockWebDomains(
@@ -132,6 +141,7 @@ class FlutterScreenTime {
       androidNotificationTitle: androidNotificationTitle,
       androidNotificationBody: androidNotificationBody,
       androidNotificationIcon: androidNotificationIcon,
+      androidNotificationGroupIcon: androidNotificationGroupIcon,
       blockWebsitesOnlyInBrowsers: blockWebsitesOnlyInBrowsers,
     );
   }

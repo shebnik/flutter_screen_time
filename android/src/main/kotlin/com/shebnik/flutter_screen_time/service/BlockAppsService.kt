@@ -1,9 +1,6 @@
 package com.shebnik.flutter_screen_time.service
 
 import android.annotation.SuppressLint
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.Service
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
@@ -17,8 +14,10 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
-import androidx.core.app.NotificationCompat
 import com.shebnik.flutter_screen_time.const.Argument
+import com.shebnik.flutter_screen_time.util.NotificationUtil
+import com.shebnik.flutter_screen_time.util.NotificationUtil.startForegroundWithGroupedNotification
+import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
 
 class BlockAppsService : Service() {
 
@@ -30,14 +29,13 @@ class BlockAppsService : Service() {
     private var notificationTitle: String? = null
     private var notificationBody: String? = null
     private var customIconResId: Int? = null
+    private var groupIconResId: Int? = null
     private var isMonitoring = false
     private val handler = Handler(Looper.getMainLooper())
     private var monitoringRunnable: Runnable? = null
 
     companion object {
         const val DEFAULT_LAYOUT_NAME = "block_overlay"
-        const val NOTIFICATION_ID = 1001
-        const val CHANNEL_ID = "block_apps_service_channel"
         const val MONITORING_INTERVAL = 1000L // 1 second
         const val TAG = "BlockAppsService"
     }
@@ -45,7 +43,7 @@ class BlockAppsService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        createNotificationChannel()
+        NotificationUtil.createNotificationChannel(this)
         Log.d(TAG, "Service created")
     }
 
@@ -59,14 +57,19 @@ class BlockAppsService : Service() {
                 it.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME) ?: DEFAULT_LAYOUT_NAME
             callerPackageName =
                 it.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE) ?: packageName
-            notificationTitle =
-                it.getStringExtra(Argument.NOTIFICATION_TITLE) ?: "App Blocking Active"
+            notificationTitle = it.getStringExtra(Argument.NOTIFICATION_TITLE)
             notificationBody = it.getStringExtra(Argument.NOTIFICATION_BODY)
-                ?: "Monitoring ${blockedApps.size} apps"
 
             val customIconName = it.getStringExtra(Argument.NOTIFICATION_ICON)
             customIconResId = if (customIconName != null) {
-                getIconResource(customIconName)
+                NotificationUtil.getIconResource(this, customIconName, callerPackageName)
+            } else {
+                null
+            }
+
+            val groupIconName = it.getStringExtra(Argument.NOTIFICATION_GROUP_ICON)
+            groupIconResId = if (groupIconName != null) {
+                NotificationUtil.getIconResource(this, groupIconName, callerPackageName)
             } else {
                 null
             }
@@ -74,8 +77,20 @@ class BlockAppsService : Service() {
 
         Log.d(TAG, "Blocked apps: $blockedApps")
 
-        // Start foreground with notification
-        startForeground(NOTIFICATION_ID, createNotification())
+        // Create and start foreground with notification
+        val notification = NotificationUtil.createBlockAppsNotification(
+            context = this,
+            title = notificationTitle,
+            body = notificationBody,
+            customIconResId = customIconResId,
+            blockedAppsCount = blockedApps.size,
+            groupIconResId = groupIconResId
+        )
+
+        startForegroundWithGroupedNotification(
+            NotificationUtil.BLOCK_APPS_NOTIFICATION_ID,
+            notification
+        )
 
         // Start monitoring apps
         startAppMonitoring()
@@ -86,37 +101,13 @@ class BlockAppsService : Service() {
     override fun onDestroy() {
         stopAppMonitoring()
         hideOverlay()
+        stopForegroundWithCleanup()
         Log.d(TAG, "Service destroyed")
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
-    }
-
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID, "App Block Service", NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Service for blocking specified applications"
-            setShowBadge(false)
-        }
-
-        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
-    }
-
-    private fun createNotification(): Notification {
-        // Use custom icon if provided, otherwise fall back to default
-        val iconResId = customIconResId ?: android.R.drawable.ic_lock_idle_lock
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(notificationTitle)
-            .setContentText(notificationBody)
-            .setSmallIcon(iconResId)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .build()
     }
 
     private fun startAppMonitoring() {
@@ -228,23 +219,6 @@ class BlockAppsService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "Error getting layout resource", e)
             0
-        }
-    }
-
-    private fun getIconResource(iconName: String): Int? {
-        return try {
-            val resources = if (callerPackageName != packageName) {
-                packageManager.getResourcesForApplication(callerPackageName)
-            } else {
-                resources
-            }
-
-            @SuppressLint("DiscouragedApi")
-            val resId = resources.getIdentifier(iconName, "drawable", callerPackageName)
-            if (resId != 0) resId else null
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting icon resource", e)
-            null
         }
     }
 }

@@ -2,9 +2,6 @@ package com.shebnik.flutter_screen_time.service
 
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Intent
@@ -15,10 +12,11 @@ import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import androidx.core.app.NotificationCompat
 import com.shebnik.flutter_screen_time.const.Argument
 import com.shebnik.flutter_screen_time.receiver.StopWebsitesBlockingReceiver
 import java.net.URL
+import com.shebnik.flutter_screen_time.util.NotificationUtil
+import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
 
 class WebsitesBlockingAccessibilityService : AccessibilityService() {
 
@@ -27,6 +25,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     private var notificationTitle: String? = null
     private var notificationBody: String? = null
     private var customIconResId: Int? = null
+    private var groupIconResId: Int? = null
     private var isServiceActive = false
     private var isMonitoring = false
     private val handler = Handler(Looper.getMainLooper())
@@ -93,11 +92,8 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     }
 
     companion object {
-        const val NOTIFICATION_ID = 1002
-        const val CHANNEL_ID = "web_domain_blocking_service_channel"
         const val TAG = "WebsitesBlock"
         const val MONITORING_INTERVAL = 1000L // 1 second
-
         const val ACTION_STOP_BLOCKING = "com.shebnik.flutter_screen_time.STOP_BLOCKING"
     }
 
@@ -105,7 +101,8 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         Log.d(TAG, "Accessibility service connected")
 
-        createNotificationChannel()
+        // Use centralized notification channel creation
+        NotificationUtil.createNotificationChannel(this)
 
         // Initialize the receiver with reference to this service
         stopBlockingReceiver = StopWebsitesBlockingReceiver(this)
@@ -138,14 +135,33 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
 
             val customIconName = intent.getStringExtra(Argument.NOTIFICATION_ICON)
             customIconResId = if (customIconName != null) {
-                getIconResource(customIconName)
+                NotificationUtil.getIconResource(this, customIconName, callerPackageName)
+            } else {
+                null
+            }
+
+            val groupIconName = intent.getStringExtra(Argument.NOTIFICATION_GROUP_ICON)
+            groupIconResId = if (groupIconName != null) {
+                NotificationUtil.getIconResource(this, groupIconName, callerPackageName)
             } else {
                 null
             }
         }
 
         isServiceActive = true
-        startForeground(NOTIFICATION_ID, createNotification())
+
+        // Create notification using centralized utility
+        val notification = NotificationUtil.createWebsiteBlockingNotification(
+            context = this,
+            title = notificationTitle,
+            body = notificationBody,
+            customIconResId = customIconResId,
+            blockedDomainsCount = blockedDomains.size,
+            blockWebsitesOnlyInBrowsers = blockWebsitesOnlyInBrowsers,
+            groupIconResId = groupIconResId
+        )
+        startForeground(NotificationUtil.WEBSITES_BLOCKING_NOTIFICATION_ID, notification)
+
 
         startAppMonitoring()
         Log.d(
@@ -218,7 +234,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     fun stopBlocking() {
         isServiceActive = false
         stopAppMonitoring()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopForegroundWithCleanup()
         currentUrl = null
         Log.d(TAG, "Domain blocking deactivated")
     }
@@ -229,6 +245,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         } catch (e: Exception) {
             Log.e(TAG, "Error unregistering receiver", e)
         }
+        NotificationUtil.cleanupGroupSummary(this)
         Log.d(TAG, "Accessibility service destroyed")
         super.onDestroy()
     }
@@ -384,14 +401,15 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         for (node in webViewNodes) {
             // Check if WebView has URL information in its properties
             node.contentDescription?.toString()?.let { desc ->
-                if (isValidUrl(desc)) return desc
+                extractUrlFromText(desc)?.let { return it }
             }
 
             // Check child nodes of WebView
             for (i in 0 until node.childCount) {
                 node.getChild(i)?.let { child ->
-                    val url = extractUrlRecursively(child)
-                    if (url != null && isValidUrl(url)) return url
+                    extractUrlRecursively(child)?.let { url ->
+                        return url
+                    }
                 }
             }
         }
@@ -399,25 +417,20 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     }
 
     private fun findUrlInTextContent(rootNode: AccessibilityNodeInfo): String? {
-        // Search through all text nodes for URLs
-        return findAllNodes(rootNode).mapNotNull { it.text?.toString() }.firstOrNull { text ->
-            // Look for URLs within text content
-            val urlPattern = Regex("https?://\\S+")
-            urlPattern.find(text)?.value?.let { url ->
-                if (isValidUrl(url)) return url
+        return findAllNodes(rootNode).mapNotNull { it.text?.toString() }
+            .firstNotNullOfOrNull { text ->
+                extractUrlFromText(text)
             }
-            false
-        }
     }
 
     private fun extractUrlRecursively(node: AccessibilityNodeInfo): String? {
         // Check current node
         node.text?.toString()?.let { text ->
-            if (isValidUrl(text)) return text
+            extractUrlFromText(text)?.let { return it }
         }
 
         node.contentDescription?.toString()?.let { desc ->
-            if (isValidUrl(desc)) return desc
+            extractUrlFromText(desc)?.let { return it }
         }
 
         // Check child nodes
@@ -472,8 +485,8 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         val nodes = rootNode.findAccessibilityNodeInfosByViewId(resourceId)
         for (node in nodes) {
             val text = node.text?.toString()
-            if (text != null && isValidUrl(text)) {
-                return text
+            if (text != null) {
+                extractUrlFromText(text)?.let { return it }
             }
         }
         return null
@@ -482,12 +495,12 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     private fun findUrlInEditText(rootNode: AccessibilityNodeInfo): String? {
         val className = "android.widget.EditText"
         return findNodesByClassName(rootNode, className).mapNotNull { it.text?.toString() }
-            .firstOrNull { isValidUrl(it) }
+            .firstNotNullOfOrNull { extractUrlFromText(it) }
     }
 
     private fun findUrlByContentDescription(rootNode: AccessibilityNodeInfo): String? {
         return findAllNodes(rootNode).mapNotNull { it.contentDescription?.toString() }
-            .firstOrNull { isValidUrl(it) }
+            .firstNotNullOfOrNull { extractUrlFromText(it) }
     }
 
     private fun findNodesByClassName(
@@ -527,18 +540,43 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         return nodes
     }
 
-    private fun isValidUrl(text: String): Boolean {
-        return try {
-            val cleanUrl = if (!text.startsWith("http://") && !text.startsWith("https://")) {
-                "https://$text"
-            } else {
-                text
-            }
+    private fun extractUrlFromText(text: String): String? {
+        // First try to extract URL from mixed text content
+        val urlPattern = Regex("https?://[^\\s]+")
+        val match = urlPattern.find(text)
 
-            URL(cleanUrl)
-            text.contains(".") && !text.contains(" ") && text.length > 4
-        } catch (e: Exception) {
-            Log.e(TAG, "Invalid URL format: $text", e)
+        return match?.value?.let { url ->
+            // Clean up the extracted URL (remove trailing punctuation)
+            val cleanedUrl = url.trimEnd('.', ',', '!', '?', ')', '}', ']')
+            if (isValidUrlFormat(cleanedUrl)) cleanedUrl else null
+        } ?: run {
+            // If no http/https URL found, check if the entire text is a domain
+            if (isPossibleDomain(text)) {
+                val urlWithProtocol = "https://$text"
+                if (isValidUrlFormat(urlWithProtocol)) urlWithProtocol else null
+            } else null
+        }
+    }
+
+    private fun isPossibleDomain(text: String): Boolean {
+        // Check if text looks like a domain (contains dot, no spaces, reasonable length)
+        return text.contains(".") &&
+                !text.contains(" ") &&
+                text.length in 4..253 && // Valid domain length range
+                !text.contains("\n") &&
+                !text.contains("\t") &&
+                // Simple check for valid domain characters
+                text.matches(Regex("^[a-zA-Z0-9.-]+$"))
+    }
+
+    private fun isValidUrlFormat(url: String): Boolean {
+        return try {
+            val urlObj = URL(url)
+            // Additional validation
+            urlObj.host != null &&
+                    urlObj.host.isNotEmpty() &&
+                    urlObj.host.contains(".")
+        } catch (_: Exception) {
             false
         }
     }
@@ -566,47 +604,6 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         } catch (e: Exception) {
             Log.e(TAG, "Error checking blocked domain for URL: $url", e)
             false
-        }
-    }
-
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID, "Web Domain Block Service", NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Service for blocking specified domains in browsers"
-            setShowBadge(false)
-        }
-
-        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
-    }
-
-    private fun createNotification(): Notification {
-        val modeText = if (blockWebsitesOnlyInBrowsers) "browsers only" else "browsers and apps"
-        val bodyText = notificationBody ?: "Monitoring ${blockedDomains.size} domains in $modeText"
-
-        // Use custom icon if provided, otherwise fall back to default
-        val iconResId = customIconResId ?: android.R.drawable.ic_dialog_alert
-
-        return NotificationCompat.Builder(this, CHANNEL_ID).setContentTitle(notificationTitle)
-            .setContentText(bodyText).setSmallIcon(iconResId)
-            .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true).build()
-    }
-
-    private fun getIconResource(iconName: String): Int? {
-        return try {
-            val resources = if (callerPackageName != packageName) {
-                packageManager.getResourcesForApplication(callerPackageName)
-            } else {
-                resources
-            }
-
-            @SuppressLint("DiscouragedApi") val resId =
-                resources.getIdentifier(iconName, "drawable", callerPackageName)
-            if (resId != 0) resId else null
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting icon resource", e)
-            null
         }
     }
 }

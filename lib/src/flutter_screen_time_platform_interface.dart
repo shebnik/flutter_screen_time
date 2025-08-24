@@ -40,6 +40,7 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
     String? androidNotificationTitle,
     String? androidNotificationBody,
     String? androidNotificationIcon,
+    String? androidNotificationGroupIcon,
   }) => throw UnimplementedError('blockApps() has not been implemented.');
 
   Future<bool> blockWebDomains({
@@ -48,6 +49,7 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
     String? androidNotificationTitle,
     String? androidNotificationBody,
     String? androidNotificationIcon,
+    String? androidNotificationGroupIcon,
     bool blockWebsitesOnlyInBrowsers = true,
   }) => throw UnimplementedError('blockWebDomains() has not been implemented.');
 

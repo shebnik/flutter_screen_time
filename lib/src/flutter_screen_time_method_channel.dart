@@ -73,6 +73,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
     String? androidNotificationTitle,
     String? androidNotificationBody,
     String? androidNotificationIcon,
+    String? androidNotificationGroupIcon,
   }) async {
     return await methodChannel.invokeMethod<bool>(
           MethodName.blockApps,
@@ -83,6 +84,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
             Argument.notificationTitle: androidNotificationTitle,
             Argument.notificationBody: androidNotificationBody,
             Argument.notificationIcon: androidNotificationIcon,
+            Argument.notificationGroupIcon: androidNotificationGroupIcon,
           },
         ) ??
         false;
@@ -96,6 +98,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
     String? androidNotificationTitle,
     String? androidNotificationBody,
     String? androidNotificationIcon,
+    String? androidNotificationGroupIcon,
   }) async {
     return await methodChannel.invokeMethod<bool>(
           MethodName.blockWebDomains,
@@ -105,6 +108,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
             Argument.notificationTitle: androidNotificationTitle,
             Argument.notificationBody: androidNotificationBody,
             Argument.notificationIcon: androidNotificationIcon,
+            Argument.notificationGroupIcon: androidNotificationGroupIcon,
             Argument.blockWebsitesOnlyInBrowsers: blockWebsitesOnlyInBrowsers,
           },
         ) ??
