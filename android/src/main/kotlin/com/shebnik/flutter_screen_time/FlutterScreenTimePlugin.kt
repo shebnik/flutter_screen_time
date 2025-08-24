@@ -70,8 +70,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val permissionType = args[Argument.PERMISSION_TYPE] as String
 
                 val response = FlutterScreenTimeMethod.authorizationStatus(
-                    context,
-                    PermissionType.valueOf(permissionType.toEnumFormat())
+                    context, PermissionType.valueOf(permissionType.toEnumFormat())
                 )
                 Log.i(
                     TAG,
@@ -89,8 +88,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
                 val args = call.arguments as Map<*, *>
                 val permissionType = args[Argument.PERMISSION_TYPE] as String
-                val enumPermissionType =
-                    PermissionType.valueOf(permissionType.toEnumFormat())
+                val enumPermissionType = PermissionType.valueOf(permissionType.toEnumFormat())
 
                 // Store pending result and permission type
                 pendingResult = result
@@ -130,13 +128,15 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
                 val notificationTitle = args[Argument.NOTIFICATION_TITLE] as String?
                 val notificationBody = args[Argument.NOTIFICATION_BODY] as String?
+                val notificationIcon = args[Argument.NOTIFICATION_ICON] as String?
 
                 val response = FlutterScreenTimeMethod.blockApps(
                     context,
                     bundleIds?.filterIsInstance<String>() ?: mutableListOf(),
                     layoutName,
                     notificationTitle,
-                    notificationBody
+                    notificationBody,
+                    notificationIcon
                 )
 
                 result.success(response)
@@ -151,6 +151,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
                 val notificationTitle = args[Argument.NOTIFICATION_TITLE] as String?
                 val notificationBody = args[Argument.NOTIFICATION_BODY] as String?
+                val notificationIcon = args[Argument.NOTIFICATION_ICON] as String?
                 val blockWebsitesOnlyInBrowsers =
                     args[Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS] as Boolean?
 
@@ -159,6 +160,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     domains?.filterIsInstance<String>() ?: mutableListOf(),
                     notificationTitle,
                     notificationBody,
+                    notificationIcon,
                     blockWebsitesOnlyInBrowsers
                 )
 
@@ -193,8 +195,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             val isGranted = FlutterScreenTimeMethod.handlePermissionResult(context, permissionType)
             result.success(isGranted)
             Log.d(
-                "FlutterScreenTimePlugin",
-                "Permission result for $permissionType: $isGranted"
+                "FlutterScreenTimePlugin", "Permission result for $permissionType: $isGranted"
             )
 
             // Clear pending callbacks
@@ -207,15 +208,13 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     // New method to handle runtime permission results
     override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
     ): Boolean {
         if (requestCode == PermissionRequestCode.REQUEST_CODE_NOTIFICATION) {
             val result = pendingResult
             if (result != null && pendingPermissionType == PermissionType.NOTIFICATION) {
-                val isGranted = grantResults.isNotEmpty() &&
-                        grantResults[0] == PackageManager.PERMISSION_GRANTED
+                val isGranted =
+                    grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
 
                 result.success(isGranted)
                 Log.d(TAG, "Notification permission result: $isGranted")
