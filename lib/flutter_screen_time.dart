@@ -84,12 +84,15 @@ class FlutterScreenTime {
   /// [androidNotificationTitle] Custom title for the android notification.
   ///
   /// [androidNotificationBody] Custom body for the android notification.
+  ///
+  /// [androidNotificationIcon] Custom icon for the android notification.
   Future<bool> blockApps({
     FamilyActivitySelection? iOSSelection,
     List<String>? androidBundleIds,
     String? androidLayoutName,
     String? androidNotificationTitle,
     String? androidNotificationBody,
+    String? androidNotificationIcon,
   }) {
     return FlutterScreenTimePlatform.instance.blockApps(
       iOSSelection: iOSSelection,
@@ -97,6 +100,7 @@ class FlutterScreenTime {
       androidLayoutName: androidLayoutName,
       androidNotificationTitle: androidNotificationTitle,
       androidNotificationBody: androidNotificationBody,
+      androidNotificationIcon: androidNotificationIcon,
     );
   }
 
@@ -107,23 +111,27 @@ class FlutterScreenTime {
   /// On iOS [isAdultWebsitesBlocked] specifies whether to block adult websites.
   ///
   /// Android specific parameters:
-  /// 
-  /// [notificationTitle] Custom title for the android notification.
   ///
-  /// [notificationBody] Custom body for the android notification.
+  /// [androidNotificationTitle] Custom title for the android notification.
+  ///
+  /// [androidNotificationBody] Custom body for the android notification.
+  ///
+  /// [androidNotificationIcon] Custom icon for the android notification.
   ///
   /// [blockWebsitesOnlyInBrowsers] If true, blocks websites only in browsers.
   Future<bool> blockWebDomains({
     required List<String> webDomains,
     bool isAdultWebsitesBlocked = false,
-    String? notificationTitle,
-    String? notificationBody,
+    String? androidNotificationTitle,
+    String? androidNotificationBody,
+    String? androidNotificationIcon,
     bool blockWebsitesOnlyInBrowsers = true,
   }) {
     return FlutterScreenTimePlatform.instance.blockWebDomains(
       webDomains: webDomains,
-      notificationTitle: notificationTitle,
-      notificationBody: notificationBody,
+      androidNotificationTitle: androidNotificationTitle,
+      androidNotificationBody: androidNotificationBody,
+      androidNotificationIcon: androidNotificationIcon,
       blockWebsitesOnlyInBrowsers: blockWebsitesOnlyInBrowsers,
     );
   }

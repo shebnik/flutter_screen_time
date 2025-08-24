@@ -339,7 +339,8 @@ object FlutterScreenTimeMethod {
         bundleIds: List<String>,
         layoutName: String? = null,
         notificationTitle: String? = null,
-        notificationBody: String? = null
+        notificationBody: String? = null,
+        notificationIcon: String? = null
     ): Boolean {
         if (bundleIds.isEmpty()) return false
 
@@ -357,6 +358,7 @@ object FlutterScreenTimeMethod {
 
                 putExtra(Argument.NOTIFICATION_TITLE, notificationTitle)
                 putExtra(Argument.NOTIFICATION_BODY, notificationBody)
+                putExtra(Argument.NOTIFICATION_ICON, notificationIcon)
             }
 
             try {
@@ -399,6 +401,7 @@ object FlutterScreenTimeMethod {
         domains: List<String>,
         notificationTitle: String? = null,
         notificationBody: String? = null,
+        notificationIcon: String? = null,
         blockWebsitesOnlyInBrowsers: Boolean? = null
     ): Boolean {
         if (domains.isEmpty()) return false
@@ -411,6 +414,7 @@ object FlutterScreenTimeMethod {
 
             putExtra(Argument.NOTIFICATION_TITLE, notificationTitle)
             putExtra(Argument.NOTIFICATION_BODY, notificationBody)
+            putExtra(Argument.NOTIFICATION_ICON, notificationIcon)
 
             putExtra(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, blockWebsitesOnlyInBrowsers)
         }

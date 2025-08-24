@@ -1,6 +1,5 @@
 import 'package:flutter_screen_time/flutter_screen_time.dart';
 import 'package:flutter_screen_time/src/flutter_screen_time_method_channel.dart';
-import 'package:flutter_screen_time/src/model/ios/web_content_blocking_configuration.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 abstract class FlutterScreenTimePlatform extends PlatformInterface {
@@ -40,13 +39,15 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
     String? androidLayoutName,
     String? androidNotificationTitle,
     String? androidNotificationBody,
+    String? androidNotificationIcon,
   }) => throw UnimplementedError('blockApps() has not been implemented.');
 
   Future<bool> blockWebDomains({
     required List<String> webDomains,
     bool isAdultWebsitesBlocked = false,
-    String? notificationTitle,
-    String? notificationBody,
+    String? androidNotificationTitle,
+    String? androidNotificationBody,
+    String? androidNotificationIcon,
     bool blockWebsitesOnlyInBrowsers = true,
   }) => throw UnimplementedError('blockWebDomains() has not been implemented.');
 

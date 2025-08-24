@@ -29,6 +29,7 @@ class BlockAppsService : Service() {
     private var callerPackageName: String = ""
     private var notificationTitle: String? = null
     private var notificationBody: String? = null
+    private var customIconResId: Int? = null
     private var isMonitoring = false
     private val handler = Handler(Looper.getMainLooper())
     private var monitoringRunnable: Runnable? = null
@@ -62,6 +63,13 @@ class BlockAppsService : Service() {
                 it.getStringExtra(Argument.NOTIFICATION_TITLE) ?: "App Blocking Active"
             notificationBody = it.getStringExtra(Argument.NOTIFICATION_BODY)
                 ?: "Monitoring ${blockedApps.size} apps"
+
+            val customIconName = it.getStringExtra(Argument.NOTIFICATION_ICON)
+            customIconResId = if (customIconName != null) {
+                getIconResource(customIconName)
+            } else {
+                null
+            }
         }
 
         Log.d(TAG, "Blocked apps: $blockedApps")
@@ -99,9 +107,16 @@ class BlockAppsService : Service() {
     }
 
     private fun createNotification(): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID).setContentTitle(notificationTitle)
-            .setContentText(notificationBody).setSmallIcon(android.R.drawable.ic_lock_idle_lock)
-            .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true).build()
+        // Use custom icon if provided, otherwise fall back to default
+        val iconResId = customIconResId ?: android.R.drawable.ic_lock_idle_lock
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(notificationTitle)
+            .setContentText(notificationBody)
+            .setSmallIcon(iconResId)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .build()
     }
 
     private fun startAppMonitoring() {
@@ -208,14 +223,28 @@ class BlockAppsService : Service() {
                 resources
             }
 
-            @SuppressLint("DiscouragedApi") resources.getIdentifier(
-                layoutName,
-                "layout",
-                callerPackageName
-            )
+            @SuppressLint("DiscouragedApi")
+            resources.getIdentifier(layoutName, "layout", callerPackageName)
         } catch (e: Exception) {
             Log.e(TAG, "Error getting layout resource", e)
             0
+        }
+    }
+
+    private fun getIconResource(iconName: String): Int? {
+        return try {
+            val resources = if (callerPackageName != packageName) {
+                packageManager.getResourcesForApplication(callerPackageName)
+            } else {
+                resources
+            }
+
+            @SuppressLint("DiscouragedApi")
+            val resId = resources.getIdentifier(iconName, "drawable", callerPackageName)
+            if (resId != 0) resId else null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting icon resource", e)
+            null
         }
     }
 }

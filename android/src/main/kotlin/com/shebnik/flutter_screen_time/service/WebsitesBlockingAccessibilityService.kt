@@ -26,6 +26,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     private var callerPackageName: String = ""
     private var notificationTitle: String? = null
     private var notificationBody: String? = null
+    private var customIconResId: Int? = null
     private var isServiceActive = false
     private var isMonitoring = false
     private val handler = Handler(Looper.getMainLooper())
@@ -134,6 +135,13 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
                 ?: "Monitoring ${blockedDomains.size} domains"
             blockWebsitesOnlyInBrowsers =
                 intent.getBooleanExtra(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, true)
+
+            val customIconName = intent.getStringExtra(Argument.NOTIFICATION_ICON)
+            customIconResId = if (customIconName != null) {
+                getIconResource(customIconName)
+            } else {
+                null
+            }
         }
 
         isServiceActive = true
@@ -577,8 +585,28 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         val modeText = if (blockWebsitesOnlyInBrowsers) "browsers only" else "browsers and apps"
         val bodyText = notificationBody ?: "Monitoring ${blockedDomains.size} domains in $modeText"
 
+        // Use custom icon if provided, otherwise fall back to default
+        val iconResId = customIconResId ?: android.R.drawable.ic_dialog_alert
+
         return NotificationCompat.Builder(this, CHANNEL_ID).setContentTitle(notificationTitle)
-            .setContentText(bodyText).setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentText(bodyText).setSmallIcon(iconResId)
             .setPriority(NotificationCompat.PRIORITY_LOW).setOngoing(true).build()
+    }
+
+    private fun getIconResource(iconName: String): Int? {
+        return try {
+            val resources = if (callerPackageName != packageName) {
+                packageManager.getResourcesForApplication(callerPackageName)
+            } else {
+                resources
+            }
+
+            @SuppressLint("DiscouragedApi") val resId =
+                resources.getIdentifier(iconName, "drawable", callerPackageName)
+            if (resId != 0) resId else null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting icon resource", e)
+            null
+        }
     }
 }

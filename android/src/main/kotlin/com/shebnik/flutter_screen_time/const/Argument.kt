@@ -11,6 +11,7 @@ object Argument {
     const val BLOCK_OVERLAY_LAYOUT_NAME = "blockOverlayLayoutName"
     const val NOTIFICATION_TITLE = "notificationTitle"
     const val NOTIFICATION_BODY = "notificationBody"
+    const val NOTIFICATION_ICON = "notificationIcon"
     const val BLOCK_WEBSITES_ONLY_IN_BROWSERS = "blockWebsitesOnlyInBrowsers"
 
     const val BLOCK_OVERLAY_LAYOUT_PACKAGE = "blockOverlayLayoutPackage"
