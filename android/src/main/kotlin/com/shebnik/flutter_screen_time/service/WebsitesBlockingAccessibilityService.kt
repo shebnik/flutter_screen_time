@@ -1,15 +1,15 @@
 package com.shebnik.flutter_screen_time.service
 
 import android.accessibilityservice.AccessibilityService
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -17,6 +17,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.app.NotificationCompat
 import com.shebnik.flutter_screen_time.const.Argument
+import com.shebnik.flutter_screen_time.receiver.StopWebsitesBlockingReceiver
 import java.net.URL
 
 class WebsitesBlockingAccessibilityService : AccessibilityService() {
@@ -34,6 +35,8 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     private var lastBlockTime = 0L
     private val blockCooldownMs =
         2000L // 2 seconds cooldown between blocks to prevent rapid back presses
+
+    private lateinit var stopBlockingReceiver: StopWebsitesBlockingReceiver
 
     // Browser package names to monitor with their URL extraction methods
     private val browserPackages = mapOf(
@@ -103,9 +106,18 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
 
         createNotificationChannel()
 
+        // Initialize the receiver with reference to this service
+        stopBlockingReceiver = StopWebsitesBlockingReceiver(this)
+
         // Register the receiver
         val filter = IntentFilter(ACTION_STOP_BLOCKING)
-        registerReceiver(stopBlockingReceiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(stopBlockingReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @SuppressLint("UnspecifiedRegisterReceiverFlag") registerReceiver(
+                stopBlockingReceiver, filter
+            )
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -149,20 +161,26 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         // Check if we should monitor this app based on the flag
         val shouldMonitor = if (blockWebsitesOnlyInBrowsers) {
             // Only monitor browsers
-            browserPackages.containsKey(packageName)
-        } else {
-            // Monitor both browsers and WebView apps
             browserPackages.containsKey(packageName) || webViewPackages.contains(packageName)
+        } else {
+            // Monitor all apps
+            true
         }
 
         if (shouldMonitor) {
             // Handle different event types that might indicate URL changes
-            when (event.eventType) {
-                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED, AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, AccessibilityEvent.TYPE_VIEW_FOCUSED, AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
-                    // Use a small delay to avoid too frequent checks
-                    handler.removeCallbacks(urlCheckRunnable)
-                    handler.postDelayed(urlCheckRunnable, 200)
-                }
+            if (intArrayOf(
+                    AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                    AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+                    AccessibilityEvent.TYPE_VIEW_FOCUSED,
+                    AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
+                ).contains(
+                    event.eventType
+                )
+            ) {
+                // Use a small delay to avoid too frequent checks
+                handler.removeCallbacks(urlCheckRunnable)
+                handler.postDelayed(urlCheckRunnable, 200)
             }
         }
     }
@@ -192,7 +210,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     fun stopBlocking() {
         isServiceActive = false
         stopAppMonitoring()
-        stopForeground(true)
+        stopForeground(STOP_FOREGROUND_REMOVE)
         currentUrl = null
         Log.d(TAG, "Domain blocking deactivated")
     }
@@ -205,14 +223,6 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         }
         Log.d(TAG, "Accessibility service destroyed")
         super.onDestroy()
-    }
-
-    private val stopBlockingReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == ACTION_STOP_BLOCKING) {
-                stopBlocking()
-            }
-        }
     }
 
     private fun startAppMonitoring() {
@@ -293,8 +303,6 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error checking URL", e)
-        } finally {
-            rootNode.recycle()
         }
     }
 
@@ -386,7 +394,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         // Search through all text nodes for URLs
         return findAllNodes(rootNode).mapNotNull { it.text?.toString() }.firstOrNull { text ->
             // Look for URLs within text content
-            val urlPattern = Regex("https?://[^\\s]+")
+            val urlPattern = Regex("https?://\\S+")
             urlPattern.find(text)?.value?.let { url ->
                 if (isValidUrl(url)) return url
             }
@@ -420,38 +428,36 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         // Try multiple approaches for Chrome
         return findUrlByResourceId(rootNode, "com.android.chrome:id/url_bar")
             ?: findUrlByResourceId(rootNode, "com.android.chrome:id/location_bar_status")
-            ?: findUrlByClassName(rootNode, "android.widget.EditText")
-            ?: findUrlByContentDescription(rootNode)
+            ?: findUrlInEditText(rootNode) ?: findUrlByContentDescription(rootNode)
     }
 
     private fun extractFirefoxUrl(rootNode: AccessibilityNodeInfo): String? {
         return findUrlByResourceId(rootNode, "org.mozilla.firefox:id/url_bar_title")
             ?: findUrlByResourceId(
                 rootNode, "org.mozilla.firefox:id/mozac_browser_toolbar_url_view"
-            ) ?: findUrlByClassName(rootNode, "android.widget.EditText")
+            ) ?: findUrlInEditText(rootNode)
     }
 
     private fun extractEdgeUrl(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlByResourceId(rootNode, "com.microsoft.emmx:id/url_bar") ?: findUrlByClassName(
-            rootNode, "android.widget.EditText"
+        return findUrlByResourceId(rootNode, "com.microsoft.emmx:id/url_bar") ?: findUrlInEditText(
+            rootNode
         )
     }
 
     private fun extractSamsungUrl(rootNode: AccessibilityNodeInfo): String? {
         return findUrlByResourceId(rootNode, "com.sec.android.app.sbrowser:id/location_bar")
             ?: findUrlByResourceId(rootNode, "com.samsung.android.sbrowser:id/location_bar")
-            ?: findUrlByClassName(rootNode, "android.widget.EditText")
+            ?: findUrlInEditText(rootNode)
     }
 
     private fun extractBraveUrl(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlByResourceId(rootNode, "com.brave.browser:id/url_bar") ?: findUrlByClassName(
-            rootNode, "android.widget.EditText"
+        return findUrlByResourceId(rootNode, "com.brave.browser:id/url_bar") ?: findUrlInEditText(
+            rootNode
         )
     }
 
     private fun extractGenericUrl(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlByClassName(rootNode, "android.widget.EditText")
-            ?: findUrlByContentDescription(rootNode)
+        return findUrlInEditText(rootNode) ?: findUrlByContentDescription(rootNode)
     }
 
     private fun findUrlByResourceId(rootNode: AccessibilityNodeInfo, resourceId: String): String? {
@@ -465,7 +471,8 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         return null
     }
 
-    private fun findUrlByClassName(rootNode: AccessibilityNodeInfo, className: String): String? {
+    private fun findUrlInEditText(rootNode: AccessibilityNodeInfo): String? {
+        val className = "android.widget.EditText"
         return findNodesByClassName(rootNode, className).mapNotNull { it.text?.toString() }
             .firstOrNull { isValidUrl(it) }
     }
@@ -523,6 +530,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
             URL(cleanUrl)
             text.contains(".") && !text.contains(" ") && text.length > 4
         } catch (e: Exception) {
+            Log.e(TAG, "Invalid URL format: $text", e)
             false
         }
     }

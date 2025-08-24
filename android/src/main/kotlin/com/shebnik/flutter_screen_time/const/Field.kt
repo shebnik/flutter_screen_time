@@ -1,26 +1,13 @@
 package com.shebnik.flutter_screen_time.const
 
 object Field {
-    const val status = "status"
-    const val error = "error"
-    const val data = "data"
-
-    const val appName = "appName"
-    const val enabled = "enabled"
-    const val category = "category"
-    const val versionName = "versionName"
-    const val versionCode = "versionCode"
-    const val appIcon = "appIcon"
-
-    const val packageName = "packageName"
-    const val lastTimeUsed = "lastTimeUsed"
-    const val firstTime = "firstTime"
-    const val lastTime = "lastTime"
-    const val usageTime = "usageTime"
-
-    const val startTime = "startTime"
-    const val endTime = "endTime"
-    const val frequency = "frequency"
-    const val currentForegroundApp = "currentForegroundApp"
-    const val timeAgo = "timeAgo"
+    const val STATUS = "status"
+    const val DATA = "data"
+    const val APP_NAME = "appName"
+    const val ENABLED = "enabled"
+    const val CATEGORY = "category"
+    const val VERSION_NAME = "versionName"
+    const val VERSION_CODE = "versionCode"
+    const val APP_ICON = "appIcon"
+    const val PACKAGE_NAME = "packageName"
 }

@@ -1,5 +1,6 @@
 package com.shebnik.flutter_screen_time.service
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -207,7 +208,11 @@ class BlockAppsService : Service() {
                 resources
             }
 
-            resources.getIdentifier(layoutName, "layout", callerPackageName)
+            @SuppressLint("DiscouragedApi") resources.getIdentifier(
+                layoutName,
+                "layout",
+                callerPackageName
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Error getting layout resource", e)
             0

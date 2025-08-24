@@ -7,6 +7,7 @@ enum AppCategory {
   news('News'),
   maps('Maps'),
   productivity('Productivity'),
+  accessibility('Accessibility'),
   other('Other');
 
   const AppCategory(this.name);

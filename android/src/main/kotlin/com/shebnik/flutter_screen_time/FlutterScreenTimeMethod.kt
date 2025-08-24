@@ -44,19 +44,11 @@ object FlutterScreenTimeMethod {
         when (type) {
             PermissionType.APP_USAGE -> {
                 val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-                val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    appOps.unsafeCheckOpNoThrow(
-                        AppOpsManager.OPSTR_GET_USAGE_STATS,
-                        android.os.Process.myUid(),
-                        context.packageName
-                    )
-                } else {
-                    appOps.checkOpNoThrow(
-                        AppOpsManager.OPSTR_GET_USAGE_STATS,
-                        android.os.Process.myUid(),
-                        context.packageName
-                    )
-                }
+                val mode = appOps.checkOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(),
+                    context.packageName
+                )
 
                 return when (mode) {
                     AppOpsManager.MODE_ALLOWED -> {
@@ -115,7 +107,7 @@ object FlutterScreenTimeMethod {
 
                 for (enabledService in enabledServices) {
                     val enabledServiceInfo: ServiceInfo = enabledService.resolveInfo.serviceInfo
-                    if (enabledServiceInfo.packageName.equals(context.getPackageName()) && enabledServiceInfo.name.equals(
+                    if (enabledServiceInfo.packageName.equals(context.packageName) && enabledServiceInfo.name.equals(
                             WebsitesBlockingAccessibilityService::class.java.name
                         )
                     ) return AuthorizationStatus.APPROVED
@@ -217,9 +209,7 @@ object FlutterScreenTimeMethod {
     }
 
     fun installedApps(
-        context: Context,
-        ignoreSystemApps: Boolean = true,
-        bundleIds: List<*>? = null
+        context: Context, ignoreSystemApps: Boolean = true, bundleIds: List<*>? = null
     ): Map<String, Any> {
         try {
             val packageManager = context.packageManager
@@ -231,14 +221,12 @@ object FlutterScreenTimeMethod {
                     val packageName = bundleId.toString()
                     try {
                         val appInfo = packageManager.getApplicationInfo(
-                            packageName,
-                            PackageManager.GET_META_DATA
+                            packageName, PackageManager.GET_META_DATA
                         )
 
                         // Apply filtering logic
                         val shouldInclude = if (ignoreSystemApps) {
-                            (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 &&
-                                    appInfo.packageName != context.packageName
+                            (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 && appInfo.packageName != context.packageName
                         } else {
                             true
                         }
@@ -248,7 +236,7 @@ object FlutterScreenTimeMethod {
                         }
                     } catch (e: PackageManager.NameNotFoundException) {
                         // Package not found, skip it
-                        Log.w("installedApps", "Package not found: $packageName")
+                        Log.w("installedApps error: $e", "Package not found: $packageName")
                     }
                 }
             } else {
@@ -261,14 +249,14 @@ object FlutterScreenTimeMethod {
                             )
                         )
                     } else {
-                        @Suppress("DEPRECATION")
-                        packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+                        @Suppress("DEPRECATION") packageManager.getInstalledApplications(
+                            PackageManager.GET_META_DATA
+                        )
                     }
 
                 if (ignoreSystemApps) {
                     val filtered = installedApplications.filter { app ->
-                        (app.flags and ApplicationInfo.FLAG_SYSTEM) == 0 &&
-                                app.packageName != context.packageName
+                        (app.flags and ApplicationInfo.FLAG_SYSTEM) == 0 && app.packageName != context.packageName
                     }
                     apps.addAll(filtered)
                 } else {
@@ -283,32 +271,37 @@ object FlutterScreenTimeMethod {
                 val packageInfo = packageManager.getPackageInfo(app.packageName, 0)
                 val appIcon = appIconAsBase64(packageManager, app.packageName)
 
+                val versionCode: Long = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    packageInfo.longVersionCode
+                } else {
+                    @Suppress("DEPRECATION") packageInfo.versionCode.toLong()
+                }
                 val data = mutableMapOf(
-                    Field.appName to app.loadLabel(packageManager),
-                    Field.packageName to app.packageName,
-                    Field.enabled to app.enabled,
-                    Field.category to appCategory,
-                    Field.versionName to packageInfo.versionName,
-                    Field.versionCode to packageInfo.versionCode,
+                    Field.APP_NAME to app.loadLabel(packageManager),
+                    Field.PACKAGE_NAME to app.packageName,
+                    Field.ENABLED to app.enabled,
+                    Field.CATEGORY to appCategory,
+                    Field.VERSION_NAME to packageInfo.versionName,
+                    Field.VERSION_CODE to versionCode,
                 )
 
                 if (appIcon != null) {
-                    data[Field.appIcon] = appIcon
+                    data[Field.APP_ICON] = appIcon
                 }
 
                 appMap.add(data)
             }
 
             return mutableMapOf(
-                Field.status to true,
-                Field.data to appMap,
+                Field.STATUS to true,
+                Field.DATA to appMap,
             )
         } catch (exception: Exception) {
             exception.localizedMessage?.let { Log.e("installedApps", it) }
 
             return mutableMapOf(
-                Field.status to false,
-                Field.data to ArrayList<MutableMap<String, Any?>>(),
+                Field.STATUS to false,
+                Field.DATA to ArrayList<MutableMap<String, Any?>>(),
             )
         }
     }
@@ -425,7 +418,7 @@ object FlutterScreenTimeMethod {
         try {
             context.startForegroundService(intent)
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting domain blockin", e)
+            Log.e(TAG, "Error starting domain blocking", e)
             return false
         }
         Log.d(TAG, "Domain blocking started successfully")

@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_blocked">App Blocked</string>
     <string name="app_name">Flutter Screen Time</string>
+    <string name="blocked_icon">Blocked Icon</string>
+    <string name="access_blocked">Access Blocked</string>
+    <string name="this_app_is_restricted">This app is restricted.</string>
     <string name="accessibility_service_description">
-        This service monitors browser activity to block access to specified web domains.
-        It reads the content of browser windows to detect when blocked websites are accessed
-        and displays a blocking overlay. No personal data is collected or transmitted.
+        Website Domain Blocking Service monitors browser and app activity to block access to specified web domains.
+        When a blocked website is detected, it automatically navigates away from the page.
+        The service uses accessibility features to read window content and perform back navigation gestures.
+        No personal data is collected, stored, or transmitted outside your device.
     </string>
 </resources>

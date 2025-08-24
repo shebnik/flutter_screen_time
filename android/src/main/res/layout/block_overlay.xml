@@ -18,13 +18,14 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:layout_marginBottom="16dp"
+            android:contentDescription="@string/blocked_icon"
             android:src="@android:drawable/ic_dialog_alert" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
-            android:text="Access Blocked"
+            android:text="@string/access_blocked"
             android:textColor="@android:color/white"
             android:textSize="28sp"
             android:textStyle="bold" />
@@ -34,7 +35,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp"
             android:gravity="center"
-            android:text="This app is restricted by Conquer."
+            android:text="@string/this_app_is_restricted"
             android:textColor="@android:color/white"
             android:textSize="16sp" />
 

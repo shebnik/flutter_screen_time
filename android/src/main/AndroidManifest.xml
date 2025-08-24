@@ -38,7 +38,7 @@
         <!-- Websites Blocking Accessibility Service -->
         <service
             android:name=".service.WebsitesBlockingAccessibilityService"
-            android:label="Websites Blocking Service"
+            android:label="Website Domain Blocking Service"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="false">
             <intent-filter>
