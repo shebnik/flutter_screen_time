@@ -14,8 +14,10 @@ class Argument {
   static const String notificationGroupIcon = 'notificationGroupIcon';
   static const String blockWebsitesOnlyInBrowsers =
       'blockWebsitesOnlyInBrowsers';
-
+  static const String useOverlayCountdown = 'useOverlayCountdown';
+  static const String overlayCountdownSeconds = 'overlayCountdownSeconds';
   static const String blockOverlayLayoutPackage = 'blockOverlayLayoutPackage';
+  static const String isOnlyWebsitesBlocking = 'isOnlyWebsitesBlocking';
 
   // iOS only
   static const String familyPickerConfiguration = 'familyPickerConfiguration';

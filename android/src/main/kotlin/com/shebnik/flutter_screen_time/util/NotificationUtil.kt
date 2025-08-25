@@ -9,6 +9,7 @@ import android.app.Service.STOP_FOREGROUND_REMOVE
 import android.content.Context
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.shebnik.flutter_screen_time.service.BlockingService
 
 object NotificationUtil {
 
@@ -18,6 +19,7 @@ object NotificationUtil {
     const val GROUP_SUMMARY_ID = 1000
     const val BLOCK_APPS_NOTIFICATION_ID = 1001
     const val WEBSITES_BLOCKING_NOTIFICATION_ID = 1002
+    const val BLOCKING_NOTIFICATION_ID = 1003
 
     private const val TAG = "NotificationUtils"
 
@@ -93,6 +95,36 @@ object NotificationUtil {
             .setGroup(GROUP_KEY)
             .build()
 
+        updateGroupSummary(context, groupIconResId)
+        return notification
+    }
+
+    /**
+     * Creates a notification for a BlockingService
+     */
+    fun createBlockingNotification(
+        context: BlockingService,
+        title: String?,
+        body: String?,
+        customIconResId: Int?,
+        blockedAppsCount: Int,
+        blockedDomainsCount: Int,
+        groupIconResId: Int?
+    ): Notification {
+        val notificationTitle = title ?: "Blocking Active"
+        val notificationBody = body ?: "Monitoring $blockedAppsCount apps and $blockedDomainsCount domains"
+        val iconResId = customIconResId ?: android.R.drawable.ic_lock_idle_lock
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle(notificationTitle)
+            .setContentText(notificationBody)
+            .setSmallIcon(iconResId)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setGroup(GROUP_KEY)
+            .build()
+
+        context.startForegroundWithGroupedNotification(BLOCKING_NOTIFICATION_ID, notification)
         updateGroupSummary(context, groupIconResId)
         return notification
     }

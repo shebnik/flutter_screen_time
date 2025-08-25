@@ -13,7 +13,9 @@ object Argument {
     const val NOTIFICATION_BODY = "notificationBody"
     const val NOTIFICATION_ICON = "notificationIcon"
     const val NOTIFICATION_GROUP_ICON = "notificationGroupIcon"
+    const val USE_OVERLAY_COUNTDOWN = "useOverlayCountdown"
+    const val OVERLAY_COUNTDOWN_SECONDS = "overlayCountdownSeconds"
     const val BLOCK_WEBSITES_ONLY_IN_BROWSERS = "blockWebsitesOnlyInBrowsers"
-
     const val BLOCK_OVERLAY_LAYOUT_PACKAGE = "blockOverlayLayoutPackage"
+    const val IS_ONLY_WEBSITES_BLOCKING = "isOnlyWebsitesBlocking"
 }

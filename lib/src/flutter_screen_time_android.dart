@@ -11,6 +11,48 @@ class FlutterScreenTimeAndroid extends FlutterScreenTimePlatform {
   static const methodChannel = MethodChannel('flutter_screen_time');
 
   @override
+  Future<bool> blockAppsAndWebDomains({
+    required List<String>? androidBundleIds,
+    required List<String> webDomains,
+    bool blockWebsitesOnlyInBrowsers = true,
+    String? androidNotificationTitle,
+    String? androidNotificationBody,
+    String? androidNotificationIcon,
+    String? androidNotificationGroupIcon,
+    String? androidLayoutName,
+    bool? androidUseOverlayCountdown,
+    int? androidOverlayCountdownSeconds,
+  }) async {
+    final result =
+        await methodChannel.invokeMethod<bool>(
+          MethodName.blockAppsAndWebDomains,
+          {
+            Argument.bundleIds: androidBundleIds,
+            Argument.blockedWebDomains: webDomains,
+            Argument.notificationTitle: androidNotificationTitle,
+            Argument.notificationBody: androidNotificationBody,
+            Argument.notificationIcon: androidNotificationIcon,
+            Argument.notificationGroupIcon: androidNotificationGroupIcon,
+            Argument.blockWebsitesOnlyInBrowsers: blockWebsitesOnlyInBrowsers,
+            Argument.blockOverlayLayoutName: androidLayoutName,
+            Argument.useOverlayCountdown: androidUseOverlayCountdown,
+            Argument.overlayCountdownSeconds: androidOverlayCountdownSeconds,
+          },
+        ) ??
+        false;
+
+    return result;
+  }
+
+  @override
+  Future<bool> disableAppsAndWebDomainsBlocking() async {
+    final result = await methodChannel.invokeMethod<bool>(
+      MethodName.disableAppsAndWebDomainsBlocking,
+    );
+    return result ?? false;
+  }
+
+  @override
   Future<List<InstalledApp>> getAndroidInstalledApps({
     bool ignoreSystemApps = true,
     List<String>? bundleIds,

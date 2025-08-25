@@ -68,9 +68,13 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             MethodName.AUTHORIZATION_STATUS -> {
                 val args = call.arguments as Map<*, *>
                 val permissionType = args[Argument.PERMISSION_TYPE] as String
+                val isOnlyWebsitesBlocking =
+                    args[Argument.IS_ONLY_WEBSITES_BLOCKING] as Boolean? ?: true
 
                 val response = FlutterScreenTimeMethod.authorizationStatus(
-                    context, PermissionType.valueOf(permissionType.toEnumFormat())
+                    context,
+                    PermissionType.valueOf(permissionType.toEnumFormat()),
+                    isOnlyWebsitesBlocking
                 )
                 Log.i(
                     TAG,
@@ -89,6 +93,8 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val args = call.arguments as Map<*, *>
                 val permissionType = args[Argument.PERMISSION_TYPE] as String
                 val enumPermissionType = PermissionType.valueOf(permissionType.toEnumFormat())
+                val isOnlyWebsitesBlocking =
+                    args[Argument.IS_ONLY_WEBSITES_BLOCKING] as Boolean? ?: true
 
                 // Store pending result and permission type
                 pendingResult = result
@@ -97,6 +103,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val success = FlutterScreenTimeMethod.requestPermission(
                     currentActivity,
                     enumPermissionType,
+                    isOnlyWebsitesBlocking
                 )
 
                 if (!success) {
@@ -138,7 +145,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     notificationTitle,
                     notificationBody,
                     notificationIcon,
-                    notificationGroupIcon
+                    notificationGroupIcon,
                 )
 
                 result.success(response)
@@ -151,12 +158,18 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             MethodName.BLOCK_WEB_DOMAINS -> {
                 val args = call.arguments as Map<*, *>
                 val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
+                val layoutName = args[Argument.BLOCK_OVERLAY_LAYOUT_NAME] as String?
+
                 val notificationTitle = args[Argument.NOTIFICATION_TITLE] as String?
                 val notificationBody = args[Argument.NOTIFICATION_BODY] as String?
                 val notificationIcon = args[Argument.NOTIFICATION_ICON] as String?
                 val notificationGroupIcon = args[Argument.NOTIFICATION_GROUP_ICON] as String?
+
                 val blockWebsitesOnlyInBrowsers =
-                    args[Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS] as Boolean?
+                    args[Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS] as Boolean? ?: true
+
+                val useOverlayCountdown = args[Argument.USE_OVERLAY_COUNTDOWN] as Boolean? ?: false
+                val overlayCountdownSeconds = args[Argument.OVERLAY_COUNTDOWN_SECONDS] as Int? ?: 5
 
                 val response = FlutterScreenTimeMethod.blockDomains(
                     context,
@@ -165,7 +178,10 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     notificationBody,
                     notificationIcon,
                     notificationGroupIcon,
-                    blockWebsitesOnlyInBrowsers
+                    blockWebsitesOnlyInBrowsers,
+                    layoutName,
+                    useOverlayCountdown,
+                    overlayCountdownSeconds
                 )
 
                 result.success(response)
@@ -181,6 +197,51 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 result.success(disableAppsBlockingResult && stopBlockingDomainsResult)
             }
 
+            MethodName.BLOCK_APPS_AND_WEB_DOMAINS -> {
+                val args = call.arguments as Map<*, *>
+                val bundleIds = args[Argument.BUNDLE_IDS] as List<*>?
+                val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
+                if (bundleIds.isNullOrEmpty() && domains.isNullOrEmpty()) {
+                    Log.w(TAG, "No bundleIds or domains provided to block.")
+                    result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebdomains(context))
+                    return
+                }
+
+                val layoutName = args[Argument.BLOCK_OVERLAY_LAYOUT_NAME] as String?
+
+                val notificationTitle = args[Argument.NOTIFICATION_TITLE] as String?
+                val notificationBody = args[Argument.NOTIFICATION_BODY] as String?
+                val notificationIcon = args[Argument.NOTIFICATION_ICON] as String?
+                val notificationGroupIcon = args[Argument.NOTIFICATION_GROUP_ICON] as String?
+
+                val blockWebsitesOnlyInBrowsers =
+                    args[Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS] as Boolean? ?: true
+
+                val useOverlayCountdown = args[Argument.USE_OVERLAY_COUNTDOWN] as Boolean? ?: false
+                val overlayCountdownSeconds = args[Argument.OVERLAY_COUNTDOWN_SECONDS] as Int? ?: 5
+
+                val response = FlutterScreenTimeMethod.blockAppsAndWebdomains(
+                    context,
+                    bundleIds?.filterIsInstance<String>() ?: mutableListOf(),
+                    domains?.filterIsInstance<String>() ?: mutableListOf(),
+                    notificationTitle,
+                    notificationBody,
+                    notificationIcon,
+                    notificationGroupIcon,
+                    blockWebsitesOnlyInBrowsers,
+                    layoutName,
+                    useOverlayCountdown,
+                    overlayCountdownSeconds
+                )
+
+                result.success(response)
+            }
+
+
+            MethodName.DISABLE_APPS_AND_WEB_DOMAINS_BLOCKING -> {
+                result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebdomains(context))
+            }
+
             else -> result.notImplemented()
         }
     }
@@ -189,14 +250,22 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         val permissionType = when (requestCode) {
             PermissionRequestCode.REQUEST_CODE_APP_USAGE -> PermissionType.APP_USAGE
             PermissionRequestCode.REQUEST_CODE_DRAW_OVERLAY -> PermissionType.DRAW_OVERLAY
-            PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_SETTINGS -> PermissionType.ACCESSIBILITY_SETTINGS
+            PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_WEBSITES_ONLY -> PermissionType.ACCESSIBILITY_SETTINGS
+            PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_APPS_AND_WEBSITES -> PermissionType.ACCESSIBILITY_SETTINGS
             else -> return false
         }
+
+        val isOnlyWebsitesBlocking =
+            requestCode == PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_WEBSITES_ONLY;
 
         // Handle the permission result using FlutterScreenTimeMethod
         val result = pendingResult
         if (result != null && pendingPermissionType == permissionType) {
-            val isGranted = FlutterScreenTimeMethod.handlePermissionResult(context, permissionType)
+            val isGranted = FlutterScreenTimeMethod.handlePermissionResult(
+                context,
+                permissionType,
+                isOnlyWebsitesBlocking
+            )
             result.success(isGranted)
             Log.d(
                 "FlutterScreenTimePlugin", "Permission result for $permissionType: $isGranted"

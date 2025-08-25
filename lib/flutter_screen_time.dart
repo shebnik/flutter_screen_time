@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_screen_time/src/flutter_screen_time_android.dart';
 import 'package:flutter_screen_time/src/flutter_screen_time_ios.dart';
 import 'package:flutter_screen_time/src/flutter_screen_time_platform_interface.dart';
@@ -48,11 +49,19 @@ class FlutterScreenTime {
   /// On Android, it requests permission for [AndroidPermissionType].
   ///
   /// Returns true if permission is granted, false otherwise.
+  ///
+  /// [isOnlyWebsitesBlocking] specifies for which Accessibility Service the
+  /// permission is requested. Provide true if will use [blockWebDomains], 
+  /// otherwise provide false if will use [blockAppsAndWebDomains].
+  ///
+  /// Returns the current [AuthorizationStatus].
   Future<bool> requestPermission({
     AndroidPermissionType? permissionType,
+    bool? isOnlyWebsitesBlocking,
   }) {
     return FlutterScreenTimePlatform.instance.requestPermission(
       permissionType: permissionType,
+      isOnlyWebsitesBlocking: isOnlyWebsitesBlocking,
     );
   }
 
@@ -61,12 +70,18 @@ class FlutterScreenTime {
   /// On Android, it checks the authorization status for
   /// [AndroidPermissionType].
   ///
+  /// [isOnlyWebsitesBlocking] specifies for which Accessibility Service the
+  /// status is requested. Provide true if will use [blockWebDomains], otherwise
+  /// provide false if will use [blockAppsAndWebDomains].
+  ///
   /// Returns the current [AuthorizationStatus].
   Future<AuthorizationStatus> authorizationStatus({
     AndroidPermissionType? androidPermissionType,
+    bool? isOnlyWebsitesBlocking,
   }) {
     return FlutterScreenTimePlatform.instance.authorizationStatus(
       androidPermissionType: androidPermissionType,
+      isOnlyWebsitesBlocking: isOnlyWebsitesBlocking,
     );
   }
 
@@ -124,9 +139,18 @@ class FlutterScreenTime {
   /// [androidNotificationIcon] Custom icon for the android notification.
   ///
   /// [blockWebsitesOnlyInBrowsers] If true, blocks websites only in browsers.
-  /// 
-  /// [androidNotificationGroupIcon] Custom group icon for the android 
+  ///
+  /// [androidNotificationGroupIcon] Custom group icon for the android
   /// notification.
+  ///
+  /// [androidLayoutName] Custom layout for android blocking overlay.
+  ///
+  /// [androidUseOverlayCountdown] If true, closes web domain and app where it
+  /// was opened and displays overlay for [androidOverlayCountdownSeconds]
+  /// seconds.
+  ///
+  /// [androidOverlayCountdownSeconds] The duration in seconds for the overlay
+  /// to be displayed, if [androidUseOverlayCountdown] is true,
   Future<bool> blockWebDomains({
     required List<String> webDomains,
     bool isAdultWebsitesBlocked = false,
@@ -135,6 +159,9 @@ class FlutterScreenTime {
     String? androidNotificationIcon,
     String? androidNotificationGroupIcon,
     bool blockWebsitesOnlyInBrowsers = true,
+    String? androidLayoutName,
+    bool? androidUseOverlayCountdown,
+    int? androidOverlayCountdownSeconds,
   }) {
     return FlutterScreenTimePlatform.instance.blockWebDomains(
       webDomains: webDomains,
@@ -143,25 +170,129 @@ class FlutterScreenTime {
       androidNotificationIcon: androidNotificationIcon,
       androidNotificationGroupIcon: androidNotificationGroupIcon,
       blockWebsitesOnlyInBrowsers: blockWebsitesOnlyInBrowsers,
+      androidLayoutName: androidLayoutName,
+      androidUseOverlayCountdown: androidUseOverlayCountdown,
+      androidOverlayCountdownSeconds: androidOverlayCountdownSeconds,
     );
   }
 
   /// Disables all app blocking completely.
   /// Returns true if successful, false otherwise.
+  /// On android it kills the service, which was created using
+  ///  [blockApps]
   Future<bool> disableAppsBlocking() {
     return FlutterScreenTimePlatform.instance.disableAppsBlocking();
   }
 
   /// Disables all web domain blocking completely.
   /// Returns true if successful, false otherwise.
+  /// On android it kills the service, which was created using
+  ///  [blockWebDomains]
   Future<bool> disableWebDomainsBlocking() {
     return FlutterScreenTimePlatform.instance.disableWebDomainsBlocking();
   }
 
   /// Disables both app and web domain blocking completely.
   /// Returns true if successful, false otherwise.
+  /// On android it kills both services which were created using
+  ///  [blockApps] and [blockWebDomains].
   Future<bool> disableAllBlocking() async {
     return FlutterScreenTimePlatform.instance.disableAllBlocking();
+  }
+
+  /// Unified Service which blocks the specified apps and web domains
+  /// indefinitely.
+  ///
+  /// On iOS [iOSSelection] is family activity selection containing encoded
+  /// tokens, which could be retrieved after calling [showFamilyActivityPicker].
+  /// [iOSSelection] contains applicationTokens, categoryTokens, webDomainTokens
+  ///
+  /// On Android [androidBundleIds] specifies the list of app bundle IDs to
+  /// block.
+  ///
+  /// [webDomains] The list of web domains to block, 50 is the maximum for iOS.
+  ///
+  /// On iOS [isAdultWebsitesBlocked] specifies whether to block adult websites.
+  ///
+  /// Android specific parameters:
+  ///
+  /// [androidNotificationTitle] Custom title for the android notification.
+  ///
+  /// [androidNotificationBody] Custom body for the android notification.
+  ///
+  /// [androidNotificationIcon] Custom icon for the android notification.
+  ///
+  /// [blockWebsitesOnlyInBrowsers] If true, blocks websites only in browsers.
+  ///
+  /// [androidNotificationGroupIcon] Custom group icon for the android
+  /// notification.
+  ///
+  /// [androidLayoutName] Custom layout for android blocking overlay.
+  ///
+  /// [androidUseOverlayCountdown] If true, closes web domain and app where it
+  /// was opened and displays overlay for [androidOverlayCountdownSeconds]
+  /// seconds.
+  ///
+  /// [androidOverlayCountdownSeconds] The duration in seconds for the overlay
+  /// to be displayed, if [androidUseOverlayCountdown] is true,
+  Future<bool> blockAppsAndWebDomains({
+    FamilyActivitySelection? iOSSelection,
+    List<String>? androidBundleIds,
+    List<String>? webDomains,
+    bool isAdultWebsitesBlocked = false,
+    String? androidNotificationTitle,
+    String? androidNotificationBody,
+    String? androidNotificationIcon,
+    String? androidNotificationGroupIcon,
+    bool blockWebsitesOnlyInBrowsers = true,
+    String? androidLayoutName,
+    bool? androidUseOverlayCountdown,
+    int? androidOverlayCountdownSeconds,
+  }) {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final futures = <Future<bool>>[];
+      if (iOSSelection != null) {
+        futures.add(
+          FlutterScreenTimePlatform.instance.blockApps(
+            iOSSelection: iOSSelection,
+          ),
+        );
+      }
+      if (webDomains != null) {
+        futures.add(
+          FlutterScreenTimePlatform.instance.blockWebDomains(
+            webDomains: webDomains,
+            isAdultWebsitesBlocked: isAdultWebsitesBlocked,
+          ),
+        );
+      }
+      return Future.wait(
+        futures,
+      ).then((results) => results.every((result) => result));
+    }
+
+    return FlutterScreenTimeAndroid().blockAppsAndWebDomains(
+      androidBundleIds: androidBundleIds ?? [],
+      webDomains: webDomains ?? [],
+      androidNotificationTitle: androidNotificationTitle,
+      androidNotificationBody: androidNotificationBody,
+      androidNotificationIcon: androidNotificationIcon,
+      androidNotificationGroupIcon: androidNotificationGroupIcon,
+      blockWebsitesOnlyInBrowsers: blockWebsitesOnlyInBrowsers,
+      androidLayoutName: androidLayoutName,
+      androidUseOverlayCountdown: androidUseOverlayCountdown,
+      androidOverlayCountdownSeconds: androidOverlayCountdownSeconds,
+    );
+  }
+
+  /// Android only
+  ///
+  /// Disables apps and web domains blocking completely.
+  /// Returns true if successful, false otherwise.
+  /// On Android it kills the service, which was created using
+  /// [blockAppsAndWebDomains]
+  Future<bool> disableAppsAndWebDomainsBlocking() async {
+    return FlutterScreenTimeAndroid().disableAppsAndWebDomainsBlocking();
   }
 
   /// Android only

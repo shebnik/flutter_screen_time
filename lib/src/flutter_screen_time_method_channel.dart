@@ -40,11 +40,13 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   @override
   Future<bool> requestPermission({
     AndroidPermissionType? permissionType,
+    bool? isOnlyWebsitesBlocking,
   }) async {
     return await methodChannel.invokeMethod<bool>(
           MethodName.requestPermission,
           {
             Argument.permissionType: permissionType?.name,
+            Argument.isOnlyWebsitesBlocking: isOnlyWebsitesBlocking,
           },
         ) ??
         false;
@@ -53,12 +55,14 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   @override
   Future<AuthorizationStatus> authorizationStatus({
     AndroidPermissionType? androidPermissionType,
+    bool? isOnlyWebsitesBlocking,
   }) async {
     final status =
         await methodChannel.invokeMethod<String>(
           MethodName.authorizationStatus,
           {
             Argument.permissionType: androidPermissionType?.name,
+            Argument.isOnlyWebsitesBlocking: isOnlyWebsitesBlocking,
           },
         ) ??
         AuthorizationStatus.notDetermined.name;
@@ -74,6 +78,8 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
     String? androidNotificationBody,
     String? androidNotificationIcon,
     String? androidNotificationGroupIcon,
+    bool? androidUseOverlayCountdown,
+    int? androidOverlayCountdownSeconds,
   }) async {
     return await methodChannel.invokeMethod<bool>(
           MethodName.blockApps,
@@ -85,6 +91,8 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
             Argument.notificationBody: androidNotificationBody,
             Argument.notificationIcon: androidNotificationIcon,
             Argument.notificationGroupIcon: androidNotificationGroupIcon,
+            Argument.useOverlayCountdown: androidUseOverlayCountdown,
+            Argument.overlayCountdownSeconds: androidOverlayCountdownSeconds,
           },
         ) ??
         false;
@@ -99,6 +107,9 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
     String? androidNotificationBody,
     String? androidNotificationIcon,
     String? androidNotificationGroupIcon,
+    String? androidLayoutName,
+    bool? androidUseOverlayCountdown,
+    int? androidOverlayCountdownSeconds,
   }) async {
     return await methodChannel.invokeMethod<bool>(
           MethodName.blockWebDomains,
@@ -110,6 +121,9 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
             Argument.notificationIcon: androidNotificationIcon,
             Argument.notificationGroupIcon: androidNotificationGroupIcon,
             Argument.blockWebsitesOnlyInBrowsers: blockWebsitesOnlyInBrowsers,
+            Argument.blockOverlayLayoutName: androidLayoutName,
+            Argument.useOverlayCountdown: androidUseOverlayCountdown,
+            Argument.overlayCountdownSeconds: androidOverlayCountdownSeconds,
           },
         ) ??
         false;

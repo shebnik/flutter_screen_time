@@ -5,9 +5,11 @@
     <string name="access_blocked">Access Blocked</string>
     <string name="this_app_is_restricted">This app is restricted.</string>
     <string name="accessibility_service_description">
-        Website Domain Blocking Service monitors browser and app activity to block access to specified web domains.
+        This service monitors browser and app activity to block access to specified web domains.
         When a blocked website is detected, it automatically navigates away from the page.
         The service uses accessibility features to read window content and perform back navigation gestures.
         No personal data is collected, stored, or transmitted outside your device.
     </string>
+    <string name="launch_app">Launch App</string>
+    <string name="closing_in_seconds">Closing in %1$ds</string>
 </resources>

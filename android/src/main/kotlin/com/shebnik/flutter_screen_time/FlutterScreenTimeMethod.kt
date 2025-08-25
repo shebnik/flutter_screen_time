@@ -28,6 +28,7 @@ import com.shebnik.flutter_screen_time.const.PermissionRequestCode
 import com.shebnik.flutter_screen_time.const.AuthorizationStatus
 import com.shebnik.flutter_screen_time.const.PermissionType
 import com.shebnik.flutter_screen_time.service.BlockAppsService
+import com.shebnik.flutter_screen_time.service.BlockingService
 import com.shebnik.flutter_screen_time.service.WebsitesBlockingAccessibilityService
 import com.shebnik.flutter_screen_time.util.ApplicationInfoUtil
 import java.io.ByteArrayOutputStream
@@ -38,7 +39,9 @@ object FlutterScreenTimeMethod {
     const val TAG = "FlutterScreenTimeMethod"
 
     fun authorizationStatus(
-        context: Context, type: PermissionType = PermissionType.APP_USAGE
+        context: Context,
+        type: PermissionType = PermissionType.APP_USAGE,
+        isOnlyWebsitesBlocking: Boolean
     ): AuthorizationStatus {
         Log.i(TAG, "Requesting authorizationStatus for PermissionType ${type.name}")
         when (type) {
@@ -99,7 +102,7 @@ object FlutterScreenTimeMethod {
             }
 
             PermissionType.ACCESSIBILITY_SETTINGS -> {
-                // Check if the accessibility service is enabled
+                // Check if the blocking accessibility service is enabled
                 val am =
                     context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
                 val enabledServices =
@@ -108,7 +111,8 @@ object FlutterScreenTimeMethod {
                 for (enabledService in enabledServices) {
                     val enabledServiceInfo: ServiceInfo = enabledService.resolveInfo.serviceInfo
                     if (enabledServiceInfo.packageName.equals(context.packageName) && enabledServiceInfo.name.equals(
-                            WebsitesBlockingAccessibilityService::class.java.name
+                            if (isOnlyWebsitesBlocking) WebsitesBlockingAccessibilityService::class.java.name
+                            else BlockingService::class.java.name
                         )
                     ) return AuthorizationStatus.APPROVED
                 }
@@ -120,6 +124,7 @@ object FlutterScreenTimeMethod {
     fun requestPermission(
         activity: Activity,
         type: PermissionType = PermissionType.APP_USAGE,
+        isOnlyWebsitesBlocking: Boolean
     ): Boolean {
         Log.i(TAG, "Requesting permission for ${type.name}")
         val packageUri = "package:${activity.packageName}".toUri()
@@ -186,7 +191,8 @@ object FlutterScreenTimeMethod {
                         Settings.ACTION_ACCESSIBILITY_SETTINGS
                     )
                     activity.startActivityForResult(
-                        intent, PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_SETTINGS
+                        intent,
+                        if (isOnlyWebsitesBlocking) PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_WEBSITES_ONLY else PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_APPS_AND_WEBSITES
                     )
                     true
                 } catch (e: Exception) {
@@ -202,9 +208,9 @@ object FlutterScreenTimeMethod {
     }
 
     fun handlePermissionResult(
-        context: Context, type: PermissionType
+        context: Context, type: PermissionType, isOnlyWebsitesBlocking: Boolean
     ): Boolean {
-        val status = authorizationStatus(context, type)
+        val status = authorizationStatus(context, type, isOnlyWebsitesBlocking)
         return status == AuthorizationStatus.APPROVED
     }
 
@@ -341,7 +347,7 @@ object FlutterScreenTimeMethod {
         notificationTitle: String? = null,
         notificationBody: String? = null,
         notificationIcon: String? = null,
-        notificationGroupIcon: String? = null
+        notificationGroupIcon: String? = null,
     ): Boolean {
         if (bundleIds.isEmpty()) return false
 
@@ -405,7 +411,10 @@ object FlutterScreenTimeMethod {
         notificationBody: String? = null,
         notificationIcon: String? = null,
         notificationGroupIcon: String? = null,
-        blockWebsitesOnlyInBrowsers: Boolean? = null
+        blockWebsitesOnlyInBrowsers: Boolean,
+        layoutName: String?,
+        useOverlayCountdown: Boolean,
+        overlayCountdownSeconds: Int,
     ): Boolean {
         if (domains.isEmpty()) return false
 
@@ -421,6 +430,10 @@ object FlutterScreenTimeMethod {
             putExtra(Argument.NOTIFICATION_GROUP_ICON, notificationGroupIcon)
 
             putExtra(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, blockWebsitesOnlyInBrowsers)
+
+            putExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME, layoutName)
+            putExtra(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
+            putExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
         }
 
         try {
@@ -436,6 +449,61 @@ object FlutterScreenTimeMethod {
     fun stopBlockingDomains(context: Context): Boolean {
         return try {
             val intent = Intent(WebsitesBlockingAccessibilityService.ACTION_STOP_BLOCKING)
+            context.sendBroadcast(intent)
+            Log.d(TAG, "Domain blocking stopped successfully")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping domain blocking", e)
+            false
+        }
+    }
+
+    fun blockAppsAndWebdomains(
+        context: Context,
+        bundleIds: List<String>,
+        domains: List<String>,
+        notificationTitle: String? = null,
+        notificationBody: String? = null,
+        notificationIcon: String? = null,
+        notificationGroupIcon: String? = null,
+        blockWebsitesOnlyInBrowsers: Boolean,
+        layoutName: String?,
+        useOverlayCountdown: Boolean,
+        overlayCountdownSeconds: Int,
+    ): Boolean {
+        val intent = Intent(context, BlockingService::class.java).apply {
+            putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(bundleIds))
+            putStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS, ArrayList(domains))
+
+            val callerPackageName = context.packageName
+            putExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, callerPackageName)
+
+            putExtra(Argument.NOTIFICATION_TITLE, notificationTitle)
+            putExtra(Argument.NOTIFICATION_BODY, notificationBody)
+            putExtra(Argument.NOTIFICATION_ICON, notificationIcon)
+            putExtra(Argument.NOTIFICATION_GROUP_ICON, notificationGroupIcon)
+
+            putExtra(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, blockWebsitesOnlyInBrowsers)
+
+            putExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME, layoutName)
+            putExtra(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
+            putExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
+        }
+
+        try {
+            context.startForegroundService(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting domain blocking", e)
+            return false
+        }
+        Log.d(TAG, "Apps and Domain blocking started successfully")
+        return true
+    }
+
+
+    fun stopBlockingAppsAndWebdomains(context: Context): Boolean {
+        return try {
+            val intent = Intent(BlockingService.ACTION_STOP_BLOCKING)
             context.sendBroadcast(intent)
             Log.d(TAG, "Domain blocking stopped successfully")
             true

@@ -24,11 +24,13 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
 
   Future<bool> requestPermission({
     AndroidPermissionType? permissionType,
+    bool? isOnlyWebsitesBlocking,
   }) =>
       throw UnimplementedError('requestPermission() has not been implemented.');
 
   Future<AuthorizationStatus> authorizationStatus({
     AndroidPermissionType? androidPermissionType,
+    bool? isOnlyWebsitesBlocking,
   }) => throw UnimplementedError(
     'authorizationStatus() has not been implemented.',
   );
@@ -41,6 +43,8 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
     String? androidNotificationBody,
     String? androidNotificationIcon,
     String? androidNotificationGroupIcon,
+    bool? androidUseOverlayCountdown,
+    int? androidOverlayCountdownSeconds,
   }) => throw UnimplementedError('blockApps() has not been implemented.');
 
   Future<bool> blockWebDomains({
@@ -51,6 +55,9 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
     String? androidNotificationIcon,
     String? androidNotificationGroupIcon,
     bool blockWebsitesOnlyInBrowsers = true,
+    String? androidLayoutName,
+    bool? androidUseOverlayCountdown,
+    int? androidOverlayCountdownSeconds,
   }) => throw UnimplementedError('blockWebDomains() has not been implemented.');
 
   Future<bool> disableAppsBlocking() => throw UnimplementedError(
@@ -99,4 +106,23 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
       throw UnimplementedError(
         'getWebContentBlocking() has not been implemented.',
       );
+
+  Future<bool> blockAppsAndWebDomains({
+    required List<String>? androidBundleIds,
+    required List<String> webDomains,
+    bool blockWebsitesOnlyInBrowsers = true,
+    String? androidNotificationTitle,
+    String? androidNotificationBody,
+    String? androidNotificationIcon,
+    String? androidNotificationGroupIcon,
+    String? androidLayoutName,
+    bool? androidUseOverlayCountdown,
+    int? androidOverlayCountdownSeconds,
+  }) => throw UnimplementedError(
+    'blockAppsAndWebDomains() has not been implemented.',
+  );
+
+  Future<bool> disableAppsAndWebDomainsBlocking() => throw UnimplementedError(
+    'disableAppsAndWebDomainsBlocking() has not been implemented.',
+  );
 }

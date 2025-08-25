@@ -12,7 +12,10 @@ class MethodName {
   static const disableAllBlocking = 'disableAllBlocking';
 
   // Android only
+  static const blockAppsAndWebDomains = 'blockAppsAndWebDomains';
   static const installedApps = 'installedApps';
+  static const disableAppsAndWebDomainsBlocking =
+      'disableAppsAndWebDomainsBlocking';
 
   // iOS only
   static const showFamilyActivityPicker = 'showFamilyActivityPicker';

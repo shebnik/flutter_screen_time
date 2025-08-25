@@ -20,14 +20,22 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
 import android.widget.TextView
 import com.shebnik.flutter_screen_time.const.Argument
-import com.shebnik.flutter_screen_time.receiver.StopWebsitesBlockingReceiver
+import com.shebnik.flutter_screen_time.receiver.StopBlockingReceiver
 import com.shebnik.flutter_screen_time.util.NotificationUtil
 import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
 import java.net.URL
 
-class WebsitesBlockingAccessibilityService : AccessibilityService() {
+class BlockingService : AccessibilityService() {
 
+    // App blocking properties
+    private var blockedApps: List<String> = emptyList()
+
+    // Website blocking properties
     private var blockedDomains: List<String> = emptyList()
+    private var blockWebsitesOnlyInBrowsers = true
+    private var currentUrl: String? = null
+
+    // Common properties
     private var callerPackageName: String = ""
     private var notificationTitle: String? = null
     private var notificationBody: String? = null
@@ -37,16 +45,13 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     private var isMonitoring = false
     private val handler = Handler(Looper.getMainLooper())
     private var monitoringRunnable: Runnable? = null
-    private var currentUrl: String? = null
-    private var blockWebsitesOnlyInBrowsers = true
     private var lastBlockTime = 0L
     private val blockCooldownMs = 2000L
 
+    // Overlay properties
     private var layoutName: String = DEFAULT_LAYOUT_NAME
     private var useOverlayCountdown: Boolean = false
     private var overlayCountdownSeconds: Int = 5
-
-    // Overlay related variables
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
     private var isOverlayShowing = false
@@ -55,7 +60,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     private var currentCountdown = 0
     private var backPressCount = 0
 
-    private lateinit var stopBlockingReceiver: StopWebsitesBlockingReceiver
+    private lateinit var stopBlockingReceiver: StopBlockingReceiver
 
     // Browser package names to monitor with their URL extraction methods
     private val browserPackages = mapOf(
@@ -81,29 +86,14 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
 
     // Apps that commonly use WebView for displaying web content
     private val webViewPackages = setOf(
-        "com.facebook.katana", // Facebook
-        "com.instagram.android", // Instagram
-        "com.twitter.android", // Twitter/X
-        "com.linkedin.android", // LinkedIn
-        "com.pinterest", // Pinterest
-        "com.reddit.frontpage", // Reddit
-        "com.tumblr", // Tumblr
-        "com.medium.reader", // Medium
-        "com.flipboard.app", // Flipboard
-        "com.google.android.apps.news", // Google News
-        "com.microsoft.office.outlook", // Outlook (email links)
-        "com.slack", // Slack
-        "com.discord", // Discord
-        "com.whatsapp", // WhatsApp (link previews)
-        "com.telegram.messenger", // Telegram
-        "com.viber.voip", // Viber
-        "com.skype.raider", // Skype
-        "com.spotify.music", // Spotify (web player)
-        "com.netflix.mediaclient", // Netflix
-        "com.amazon.mShop.android.shopping", // Amazon
-        "com.ebay.mobile", // eBay
-        "com.paypal.android.p2pmobile", // PayPal
-        "org.telegram.messenger"
+        "com.facebook.katana", "com.instagram.android", "com.twitter.android",
+        "com.linkedin.android", "com.pinterest", "com.reddit.frontpage",
+        "com.tumblr", "com.medium.reader", "com.flipboard.app",
+        "com.google.android.apps.news", "com.microsoft.office.outlook",
+        "com.slack", "com.discord", "com.whatsapp", "com.telegram.messenger",
+        "com.viber.voip", "com.skype.raider", "com.spotify.music",
+        "com.netflix.mediaclient", "com.amazon.mShop.android.shopping",
+        "com.ebay.mobile", "com.paypal.android.p2pmobile", "org.telegram.messenger"
     )
 
     private enum class BrowserType {
@@ -111,9 +101,12 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     }
 
     companion object {
-        const val TAG = "WebsitesBlock"
+        const val TAG = "BlockingService"
         const val MONITORING_INTERVAL = 1000L // 1 second
         const val ACTION_STOP_BLOCKING = "com.shebnik.flutter_screen_time.STOP_BLOCKING"
+        const val ACTION_STOP_BLOCKING_APPS = "com.shebnik.flutter_screen_time.STOP_BLOCKING_APPS"
+        const val ACTION_STOP_BLOCKING_WEBSITES =
+            "com.shebnik.flutter_screen_time.STOP_BLOCKING_WEBSITES"
         const val BACK_PRESS_COUNT = 10
         const val BACK_PRESS_INTERVAL = 100L // 100ms between back presses
 
@@ -123,118 +116,101 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Log.d(TAG, "Accessibility service connected")
+        Log.d(TAG, "Unified blocking accessibility service connected")
 
-        // Initialize WindowManager for overlay
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-
-        // Use centralized notification channel creation
         NotificationUtil.createNotificationChannel(this)
 
-        // Initialize the receiver with reference to this service
-        stopBlockingReceiver = StopWebsitesBlockingReceiver(this)
+        stopBlockingReceiver = StopBlockingReceiver(this)
 
-        // Register the receiver
         val filter = IntentFilter(ACTION_STOP_BLOCKING)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(stopBlockingReceiver, filter, RECEIVER_NOT_EXPORTED)
         } else {
-            @SuppressLint("UnspecifiedRegisterReceiverFlag") registerReceiver(
-                stopBlockingReceiver, filter
-            )
+            @SuppressLint("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(stopBlockingReceiver, filter)
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "Accessibility service started")
+        Log.d(TAG, "Unified blocking service started")
 
         intent?.let {
-            blockedDomains =
-                intent.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: emptyList()
-            callerPackageName =
-                intent.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE) ?: packageName
-            notificationTitle =
-                intent.getStringExtra(Argument.NOTIFICATION_TITLE) ?: "Domain Blocking Active"
-            notificationBody = intent.getStringExtra(Argument.NOTIFICATION_BODY)
-                ?: "Monitoring ${blockedDomains.size} domains"
-            blockWebsitesOnlyInBrowsers =
-                intent.getBooleanExtra(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, true)
+            // Extract both app and website blocking data
+            blockedApps = it.getStringArrayListExtra(Argument.BUNDLE_IDS) ?: emptyList()
+            blockedDomains = it.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: emptyList()
 
-            val customIconName = intent.getStringExtra(Argument.NOTIFICATION_ICON)
+            callerPackageName =
+                it.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE) ?: packageName
+            notificationTitle =
+                it.getStringExtra(Argument.NOTIFICATION_TITLE) ?: getDefaultNotificationTitle()
+            notificationBody =
+                it.getStringExtra(Argument.NOTIFICATION_BODY) ?: getDefaultNotificationBody()
+
+            blockWebsitesOnlyInBrowsers =
+                it.getBooleanExtra(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, true)
+
+            val customIconName = it.getStringExtra(Argument.NOTIFICATION_ICON)
             customIconResId = if (customIconName != null) {
                 NotificationUtil.getIconResource(this, customIconName, callerPackageName)
-            } else {
-                null
-            }
+            } else null
 
-            val groupIconName = intent.getStringExtra(Argument.NOTIFICATION_GROUP_ICON)
+            val groupIconName = it.getStringExtra(Argument.NOTIFICATION_GROUP_ICON)
             groupIconResId = if (groupIconName != null) {
                 NotificationUtil.getIconResource(this, groupIconName, callerPackageName)
-            } else {
-                null
-            }
+            } else null
 
             useOverlayCountdown = it.getBooleanExtra(Argument.USE_OVERLAY_COUNTDOWN, false)
             overlayCountdownSeconds = it.getIntExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, 5)
-            layoutName =
-                it.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME)
-                    ?: if (useOverlayCountdown) DEFAULT_COUNT_LAYOUT_NAME else DEFAULT_LAYOUT_NAME
+            layoutName = it.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME)
+                ?: if (useOverlayCountdown) DEFAULT_COUNT_LAYOUT_NAME else DEFAULT_LAYOUT_NAME
         }
 
         isServiceActive = true
 
-        // Create notification using centralized utility
-        val notification = NotificationUtil.createWebsiteBlockingNotification(
+        val notification = NotificationUtil.createBlockingNotification(
             context = this,
             title = notificationTitle,
             body = notificationBody,
             customIconResId = customIconResId,
+            blockedAppsCount = blockedApps.size,
             blockedDomainsCount = blockedDomains.size,
-            blockWebsitesOnlyInBrowsers = blockWebsitesOnlyInBrowsers,
             groupIconResId = groupIconResId
         )
-        startForeground(NotificationUtil.WEBSITES_BLOCKING_NOTIFICATION_ID, notification)
+        startForeground(NotificationUtil.BLOCKING_NOTIFICATION_ID, notification)
 
         startAppMonitoring()
         Log.d(
             TAG,
-            "Domain blocking started for domains: $blockedDomains, browser-only: $blockWebsitesOnlyInBrowsers"
+            "Unified blocking started - Apps: ${blockedApps.size}, Domains: ${blockedDomains.size}"
         )
         return START_STICKY
     }
 
     override fun onInterrupt() {
-        Log.d(TAG, "Accessibility service interrupted")
+        Log.d(TAG, "Unified blocking service interrupted")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
-
-        if (!isServiceActive) return
+        if (!isServiceActive || blockedDomains.isEmpty()) return
 
         val packageName = event.packageName?.toString() ?: return
 
-        // Check if we should monitor this app based on the flag
         val shouldMonitor = if (blockWebsitesOnlyInBrowsers) {
-            // Only monitor browsers
             browserPackages.containsKey(packageName) || webViewPackages.contains(packageName)
         } else {
-            // Monitor all apps
             true
         }
 
         if (shouldMonitor) {
-            // Handle different event types that might indicate URL changes
             if (intArrayOf(
                     AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
                     AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
                     AccessibilityEvent.TYPE_VIEW_FOCUSED,
                     AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
-                ).contains(
-                    event.eventType
-                )
+                ).contains(event.eventType)
             ) {
-                // Use a small delay to avoid too frequent checks
                 handler.removeCallbacks(urlCheckRunnable)
                 handler.postDelayed(urlCheckRunnable, 200)
             }
@@ -246,220 +222,13 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
             val rootNode = rootInActiveWindow
             if (rootNode != null) {
                 val packageName = rootNode.packageName?.toString()
-                if (packageName != null && shouldMonitorPackage(packageName)) {
+                if (packageName != null && shouldMonitorPackageForWebsite(packageName)) {
                     checkUrlAndPerformAction(packageName, rootNode)
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error in URL check runnable", e)
         }
-    }
-
-    private fun shouldMonitorPackage(packageName: String): Boolean {
-        return if (blockWebsitesOnlyInBrowsers) {
-            browserPackages.containsKey(packageName)
-        } else {
-            browserPackages.containsKey(packageName) || webViewPackages.contains(packageName)
-        }
-    }
-
-    private fun getResource(resourceName: String, type: String): Int {
-        return try {
-            val resources = if (callerPackageName != packageName) {
-                packageManager.getResourcesForApplication(callerPackageName)
-            } else {
-                resources
-            }
-
-            @SuppressLint("DiscouragedApi")
-            resources.getIdentifier(resourceName, type, callerPackageName)
-        } catch (e: Exception) {
-            Log.e(BlockAppsService.Companion.TAG, "Error getting layout resource", e)
-            0
-        }
-    }
-
-    private fun showBlockingOverlay() {
-        if (isOverlayShowing || !useOverlayCountdown) return
-
-        try {
-            // Create overlay layout
-            val layoutInflater = LayoutInflater.from(this)
-            val layoutResId = getResource(layoutName, "layout")
-
-            overlayView = if (layoutResId != 0) {
-                layoutInflater.inflate(layoutResId, null)
-            } else {
-                // Fallback to default layout if specified layout is not found
-                layoutInflater.inflate(getResource(DEFAULT_LAYOUT_NAME, "layout"), null)
-            }
-
-            val params = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                        WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS,
-                PixelFormat.TRANSLUCENT
-            ).apply {
-                gravity = Gravity.TOP or Gravity.START
-            }
-
-            if (useOverlayCountdown) {
-                // Update countdown text if available
-                val countdownText = getResource("countdown_text", "id")
-                    .takeIf { it != 0 }
-                    ?.let { overlayView?.findViewById<TextView>(it) }
-                currentCountdown = overlayCountdownSeconds
-                countdownText?.text = getResource("closing_in_seconds", type = "string")
-                    .takeIf { it != 0 }
-                    ?.let { getString(it, currentCountdown) }
-                    ?: "Closing in ${currentCountdown}s"
-
-                // Set up launch app button
-                val launchButton = getResource("launch_app_button", "id")
-                    .takeIf { it != 0 }
-                    ?.let {
-                        overlayView?.findViewById<Button>(it)
-                    }
-                launchButton?.setOnClickListener {
-                    stopBackButtonSequence()
-                    // Launch the calling app
-                    launchCallerApp()
-                }
-            }
-
-            windowManager?.addView(overlayView, params)
-            isOverlayShowing = true
-
-            startCountdown()
-            Log.d(TAG, "Blocking overlay shown")
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error showing blocking overlay", e)
-        }
-    }
-
-    private fun hideBlockingOverlay() {
-        try {
-            if (isOverlayShowing && overlayView != null) {
-                windowManager?.removeView(overlayView)
-                overlayView = null
-                isOverlayShowing = false
-
-                // Cancel countdown
-                countdownRunnable?.let { handler.removeCallbacks(it) }
-                countdownRunnable = null
-
-                Log.d(TAG, "Blocking overlay hidden")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error hiding blocking overlay", e)
-        }
-    }
-
-    private fun startCountdown() {
-        countdownRunnable = object : Runnable {
-            override fun run() {
-                if (currentCountdown > 0) {
-                    val countdownText = getResource("countdown_text", "id")
-                        .takeIf { it != 0 }
-                        ?.let { overlayView?.findViewById<TextView>(it) }
-                    countdownText?.text = getResource("closing_in_seconds", type = "string")
-                        .takeIf { it != 0 }
-                        ?.let { getString(it, currentCountdown) }
-                        ?: "Closing in ${currentCountdown}s"
-                    currentCountdown--
-                    handler.postDelayed(this, 1000)
-                } else {
-                    // Countdown finished, hide overlay and perform home action
-                    hideBlockingOverlay()
-                    performGlobalAction(GLOBAL_ACTION_HOME)
-                    Log.d(TAG, "Countdown finished, navigated to home")
-                }
-            }
-        }
-        handler.post(countdownRunnable!!)
-    }
-
-    private fun launchCallerApp() {
-        try {
-            val intent = packageManager.getLaunchIntentForPackage(callerPackageName)
-            if (intent != null) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-                hideBlockingOverlay()
-                Log.d(TAG, "Launched caller app: $callerPackageName")
-            } else {
-                Log.e(TAG, "Cannot launch caller app: $callerPackageName")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error launching caller app", e)
-        }
-    }
-
-    private fun startBackButtonSequence() {
-        backPressCount = 0
-
-        backPressRunnable = object : Runnable {
-            override fun run() {
-                if (backPressCount < BACK_PRESS_COUNT) {
-                    val success = performGlobalAction(GLOBAL_ACTION_BACK)
-                    if (success) {
-                        backPressCount++
-                        Log.d(TAG, "Back press $backPressCount/$BACK_PRESS_COUNT performed")
-
-                        // Continue with next back press
-                        handler.postDelayed(this, BACK_PRESS_INTERVAL)
-                    } else {
-                        Log.w(TAG, "Back press $backPressCount failed, retrying...")
-                        handler.postDelayed(this, BACK_PRESS_INTERVAL)
-                    }
-                } else {
-                    // All back presses completed, perform home action
-                    performGlobalAction(GLOBAL_ACTION_HOME)
-                    Log.d(TAG, "All back presses completed, navigated to home")
-                }
-            }
-        }
-
-        handler.post(backPressRunnable!!)
-    }
-
-    private fun stopBackButtonSequence() {
-        backPressRunnable?.let { handler.removeCallbacks(it) }
-        backPressRunnable = null
-        backPressCount = 0
-    }
-
-    fun stopBlocking() {
-        isServiceActive = false
-        stopAppMonitoring()
-        hideBlockingOverlay()
-
-        // Cancel any pending back press actions
-        backPressRunnable?.let { handler.removeCallbacks(it) }
-        backPressRunnable = null
-
-        stopForegroundWithCleanup()
-        currentUrl = null
-        Log.d(TAG, "Domain blocking deactivated")
-    }
-
-    override fun onDestroy() {
-        try {
-            unregisterReceiver(stopBlockingReceiver)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error unregistering receiver", e)
-        }
-
-        hideBlockingOverlay()
-        NotificationUtil.cleanupGroupSummary(this)
-        Log.d(TAG, "Accessibility service destroyed")
-        super.onDestroy()
     }
 
     private fun startAppMonitoring() {
@@ -500,18 +269,63 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
             }
 
             foregroundApp?.let { packageName ->
-                if (!shouldMonitorPackage(packageName)) {
-                    // If current app is not monitored, reset URL
-                    currentUrl = null
+                // Check for blocked apps first
+                if (blockedApps.contains(packageName)) {
+                    Log.d(TAG, "Blocked app detected: $packageName")
+                    showOverlay()
+                    if (useOverlayCountdown) {
+                        startBackButtonSequence()
+                    } else {
+                        performGlobalAction(GLOBAL_ACTION_BACK)
+                    }
+                    return
+                }
+
+                // Check for website monitoring
+                if (blockedDomains.isNotEmpty()) {
+                    if (!shouldMonitorPackageForWebsite(packageName)) {
+                        currentUrl = null
+                        // Don't hide overlay if countdown is active
+                        if (!useOverlayCountdown || !isOverlayShowing || countdownRunnable == null) {
+                            hideOverlay()
+                        }
+                    } else {
+                        handler.postDelayed({
+                            checkCurrentAppUrl(packageName)
+                        }, 500)
+                    }
                 } else {
-                    // Monitored app is now in foreground, check URL immediately
-                    handler.postDelayed({
-                        checkCurrentAppUrl(packageName)
-                    }, 500) // Short delay to allow app UI to load
+                    // Don't hide overlay if countdown is active
+                    if (!useOverlayCountdown || !isOverlayShowing || countdownRunnable == null) {
+                        hideOverlay()
+                    }
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error checking foreground app", e)
+        }
+    }
+
+    private fun shouldMonitorPackageForWebsite(packageName: String): Boolean {
+        return if (blockWebsitesOnlyInBrowsers) {
+            browserPackages.containsKey(packageName)
+        } else {
+            browserPackages.containsKey(packageName) || webViewPackages.contains(packageName)
+        }
+    }
+
+    private fun checkCurrentAppUrl(packageName: String) {
+        try {
+            val rootNode = rootInActiveWindow
+            if (rootNode != null) {
+                checkUrlAndPerformAction(packageName, rootNode)
+            } else {
+                handler.postDelayed({
+                    checkCurrentAppUrl(packageName)
+                }, 1000)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking current app URL", e)
         }
     }
 
@@ -520,31 +334,28 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
 
         try {
             val url = if (browserPackages.containsKey(packageName)) {
-                // Extract URL from browser
                 val browserType = browserPackages[packageName] ?: return
                 extractUrlFromBrowser(rootNode, browserType)
             } else {
-                // Extract URL from WebView (for non-browser apps)
                 extractUrlFromWebView(rootNode)
             }
 
             if (url != null) {
-                // Always update and check, don't compare with currentUrl to avoid missing cases
                 currentUrl = url
                 Log.d(TAG, "URL detected in $packageName: $url")
 
                 if (isBlockedDomain(url)) {
+                    val currentTime = System.currentTimeMillis()
+
+                    if (currentTime - lastBlockTime < blockCooldownMs) {
+                        Log.d(TAG, "Blocking action skipped due to cooldown")
+                        return
+                    }
+
+                    lastBlockTime = currentTime
+
                     if (useOverlayCountdown) {
-                        val currentTime = System.currentTimeMillis()
-
-                        // Check cooldown to prevent rapid blocking
-                        if (currentTime - lastBlockTime < blockCooldownMs) {
-                            Log.d(TAG, "Blocking action skipped due to cooldown")
-                            return
-                        }
-
-                        lastBlockTime = currentTime
-                        showBlockingOverlay()
+                        showOverlay()
                         startBackButtonSequence()
                         Log.d(TAG, "Blocked domain detected, blocking actions initiated: $url")
                     } else {
@@ -558,19 +369,158 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun checkCurrentAppUrl(packageName: String) {
+    private fun showOverlay() {
+        if (overlayView != null) return
+
         try {
-            val rootNode = rootInActiveWindow
-            if (rootNode != null) {
-                checkUrlAndPerformAction(packageName, rootNode)
+            val layoutInflater = LayoutInflater.from(this)
+            val layoutResId = getResource(layoutName, "layout")
+
+            overlayView = if (layoutResId != 0) {
+                layoutInflater.inflate(layoutResId, null)
             } else {
-                // If we can't get root node, schedule another check
-                handler.postDelayed({
-                    checkCurrentAppUrl(packageName)
-                }, 1000)
+                layoutInflater.inflate(getResource(DEFAULT_LAYOUT_NAME, "layout"), null)
+            }
+
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+            }
+
+            if (useOverlayCountdown) {
+                setupCountdownOverlay()
+            }
+
+            windowManager?.addView(overlayView, params)
+            isOverlayShowing = true
+
+            if (useOverlayCountdown) {
+                startCountdown()
+            }
+
+            Log.d(TAG, "Overlay shown")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing overlay", e)
+        }
+    }
+
+    private fun setupCountdownOverlay() {
+        val countdownText = getResource("countdown_text", "id")
+            .takeIf { it != 0 }
+            ?.let { overlayView?.findViewById<TextView>(it) }
+
+        currentCountdown = overlayCountdownSeconds
+        countdownText?.text = getResource("closing_in_seconds", type = "string")
+            .takeIf { it != 0 }
+            ?.let { getString(it, currentCountdown) }
+            ?: "Closing in ${currentCountdown}s"
+
+        val launchButton = getResource("launch_app_button", "id")
+            .takeIf { it != 0 }
+            ?.let { overlayView?.findViewById<Button>(it) }
+
+        launchButton?.setOnClickListener {
+            stopBackButtonSequence()
+            launchCallerApp()
+        }
+    }
+
+    private fun hideOverlay() {
+        overlayView?.let { view ->
+            try {
+                windowManager?.removeView(view)
+                overlayView = null
+                isOverlayShowing = false
+
+                countdownRunnable?.let { handler.removeCallbacks(it) }
+                countdownRunnable = null
+
+                Log.d(TAG, "Overlay hidden")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error hiding overlay", e)
+            }
+        }
+    }
+
+    private fun startCountdown() {
+        countdownRunnable = object : Runnable {
+            override fun run() {
+                if (currentCountdown > 0) {
+                    val countdownText = getResource("countdown_text", "id")
+                        .takeIf { it != 0 }
+                        ?.let { overlayView?.findViewById<TextView>(it) }
+
+                    countdownText?.text = getResource("closing_in_seconds", type = "string")
+                        .takeIf { it != 0 }
+                        ?.let { getString(it, currentCountdown) }
+                        ?: "Closing in ${currentCountdown}s"
+
+                    currentCountdown--
+                    handler.postDelayed(this, 1000)
+                } else {
+                    hideOverlay()
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    Log.d(TAG, "Countdown finished, navigated to home")
+                }
+            }
+        }
+        handler.post(countdownRunnable!!)
+    }
+
+    private fun startBackButtonSequence() {
+        backPressCount = 0
+
+        backPressRunnable = object : Runnable {
+            override fun run() {
+                if (backPressCount < BACK_PRESS_COUNT) {
+                    val success = performGlobalAction(GLOBAL_ACTION_BACK)
+                    if (success) {
+                        backPressCount++
+                        Log.d(TAG, "Back press $backPressCount/$BACK_PRESS_COUNT performed")
+                        handler.postDelayed(this, BACK_PRESS_INTERVAL)
+                    } else {
+                        Log.w(TAG, "Back press $backPressCount failed, retrying...")
+                        handler.postDelayed(this, BACK_PRESS_INTERVAL)
+                    }
+                } else {
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    Log.d(TAG, "All back presses completed, navigated to home")
+                }
+            }
+        }
+
+        handler.post(backPressRunnable!!)
+    }
+
+    private fun stopBackButtonSequence() {
+        backPressRunnable?.let { handler.removeCallbacks(it) }
+        backPressRunnable = null
+        backPressCount = 0
+    }
+
+    private fun launchCallerApp() {
+        try {
+            val intent = packageManager.getLaunchIntentForPackage(callerPackageName)
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                hideOverlay()
+                Log.d(TAG, "Launched caller app: $callerPackageName")
+            } else {
+                Log.e(TAG, "Cannot launch caller app: $callerPackageName")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking current app URL", e)
+            Log.e(TAG, "Error launching caller app", e)
         }
     }
 
@@ -578,7 +528,6 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         try {
             val currentTime = System.currentTimeMillis()
 
-            // Check cooldown to prevent rapid back presses
             if (currentTime - lastBlockTime < blockCooldownMs) {
                 Log.d(TAG, "Back action blocked due to cooldown")
                 return
@@ -586,14 +535,12 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
 
             lastBlockTime = currentTime
 
-            // Perform back action using global gesture
             val success = performGlobalAction(GLOBAL_ACTION_BACK)
 
             if (success) {
                 Log.d(TAG, "Back action performed successfully")
             } else {
                 Log.w(TAG, "Back action failed")
-                // Fallback: try again after a short delay
                 handler.postDelayed({
                     performGlobalAction(GLOBAL_ACTION_BACK)
                 }, 500)
@@ -603,8 +550,88 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         }
     }
 
+    fun stopBlocking() {
+        isServiceActive = false
+        stopAppMonitoring()
+        hideOverlay()
+
+        backPressRunnable?.let { handler.removeCallbacks(it) }
+        backPressRunnable = null
+
+        stopForegroundWithCleanup()
+        currentUrl = null
+        Log.d(TAG, "Unified blocking deactivated")
+    }
+
+    fun stopBlockingApps() {
+        blockedApps = emptyList()
+        if (blockedDomains.isEmpty()) {
+            stopBlocking()
+        }
+        Log.d(TAG, "App blocking deactivated")
+    }
+
+    fun stopBlockingWebsites() {
+        blockedDomains = emptyList()
+        if (blockedApps.isEmpty()) {
+            stopBlocking()
+        }
+        Log.d(TAG, "Website blocking deactivated")
+    }
+
+    override fun onDestroy() {
+        try {
+            unregisterReceiver(stopBlockingReceiver)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error unregistering receiver", e)
+        }
+
+        hideOverlay()
+        NotificationUtil.cleanupGroupSummary(this)
+        Log.d(TAG, "Unified blocking service destroyed")
+        super.onDestroy()
+    }
+
+    private fun getDefaultNotificationTitle(): String {
+        return when {
+            blockedApps.isNotEmpty() && blockedDomains.isNotEmpty() -> "App & Website Blocking Active"
+            blockedApps.isNotEmpty() -> "App Blocking Active"
+            blockedDomains.isNotEmpty() -> "Website Blocking Active"
+            else -> "Blocking Service Active"
+        }
+    }
+
+    private fun getDefaultNotificationBody(): String {
+        return when {
+            blockedApps.isNotEmpty() && blockedDomains.isNotEmpty() ->
+                "Monitoring ${blockedApps.size} apps and ${blockedDomains.size} websites"
+
+            blockedApps.isNotEmpty() -> "Monitoring ${blockedApps.size} apps"
+            blockedDomains.isNotEmpty() -> "Monitoring ${blockedDomains.size} websites"
+            else -> "Service is running"
+        }
+    }
+
+    private fun getResource(resourceName: String, type: String): Int {
+        return try {
+            val resources = if (callerPackageName != packageName) {
+                packageManager.getResourcesForApplication(callerPackageName)
+            } else {
+                resources
+            }
+
+            @SuppressLint("DiscouragedApi")
+            resources.getIdentifier(resourceName, type, callerPackageName)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting layout resource", e)
+            0
+        }
+    }
+
+    // Website blocking URL extraction methods
     private fun extractUrlFromBrowser(
-        rootNode: AccessibilityNodeInfo, browserType: BrowserType
+        rootNode: AccessibilityNodeInfo,
+        browserType: BrowserType
     ): String? {
         return when (browserType) {
             BrowserType.CHROME -> extractChromeUrl(rootNode)
@@ -617,79 +644,45 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     }
 
     private fun extractUrlFromWebView(rootNode: AccessibilityNodeInfo): String? {
-        // For WebView apps, try to find URLs in text content, content descriptions, or WebView nodes
         return findUrlInWebView(rootNode) ?: findUrlByContentDescription(rootNode)
         ?: findUrlInTextContent(rootNode)
     }
 
     private fun findUrlInWebView(rootNode: AccessibilityNodeInfo): String? {
-        // Look for WebView nodes
         val webViewNodes = findNodesByClassName(rootNode, "android.webkit.WebView")
         for (node in webViewNodes) {
-            // Check if WebView has URL information in its properties
             node.contentDescription?.toString()?.let { desc ->
                 extractUrlFromText(desc)?.let { return it }
             }
 
-            // Check child nodes of WebView
             for (i in 0 until node.childCount) {
                 node.getChild(i)?.let { child ->
-                    extractUrlRecursively(child)?.let { url ->
-                        return url
-                    }
+                    extractUrlRecursively(child)?.let { url -> return url }
                 }
             }
         }
-        return null
-    }
-
-    private fun findUrlInTextContent(rootNode: AccessibilityNodeInfo): String? {
-        return findAllNodes(rootNode).mapNotNull { it.text?.toString() }
-            .firstNotNullOfOrNull { text ->
-                extractUrlFromText(text)
-            }
-    }
-
-    private fun extractUrlRecursively(node: AccessibilityNodeInfo): String? {
-        // Check current node
-        node.text?.toString()?.let { text ->
-            extractUrlFromText(text)?.let { return it }
-        }
-
-        node.contentDescription?.toString()?.let { desc ->
-            extractUrlFromText(desc)?.let { return it }
-        }
-
-        // Check child nodes
-        for (i in 0 until node.childCount) {
-            node.getChild(i)?.let { child ->
-                extractUrlRecursively(child)?.let { url ->
-                    return url
-                }
-            }
-        }
-
         return null
     }
 
     private fun extractChromeUrl(rootNode: AccessibilityNodeInfo): String? {
-        // Try multiple approaches for Chrome
         return findUrlByResourceId(rootNode, "com.android.chrome:id/url_bar")
             ?: findUrlByResourceId(rootNode, "com.android.chrome:id/location_bar_status")
-            ?: findUrlInEditText(rootNode) ?: findUrlByContentDescription(rootNode)
+            ?: findUrlInEditText(rootNode)
+            ?: findUrlByContentDescription(rootNode)
     }
 
     private fun extractFirefoxUrl(rootNode: AccessibilityNodeInfo): String? {
         return findUrlByResourceId(rootNode, "org.mozilla.firefox:id/url_bar_title")
             ?: findUrlByResourceId(
-                rootNode, "org.mozilla.firefox:id/mozac_browser_toolbar_url_view"
-            ) ?: findUrlInEditText(rootNode)
+                rootNode,
+                "org.mozilla.firefox:id/mozac_browser_toolbar_url_view"
+            )
+            ?: findUrlInEditText(rootNode)
     }
 
     private fun extractEdgeUrl(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlByResourceId(rootNode, "com.microsoft.emmx:id/url_bar") ?: findUrlInEditText(
-            rootNode
-        )
+        return findUrlByResourceId(rootNode, "com.microsoft.emmx:id/url_bar")
+            ?: findUrlInEditText(rootNode)
     }
 
     private fun extractSamsungUrl(rootNode: AccessibilityNodeInfo): String? {
@@ -699,9 +692,8 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     }
 
     private fun extractBraveUrl(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlByResourceId(rootNode, "com.brave.browser:id/url_bar") ?: findUrlInEditText(
-            rootNode
-        )
+        return findUrlByResourceId(rootNode, "com.brave.browser:id/url_bar")
+            ?: findUrlInEditText(rootNode)
     }
 
     private fun extractGenericUrl(rootNode: AccessibilityNodeInfo): String? {
@@ -720,18 +712,26 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     }
 
     private fun findUrlInEditText(rootNode: AccessibilityNodeInfo): String? {
-        val className = "android.widget.EditText"
-        return findNodesByClassName(rootNode, className).mapNotNull { it.text?.toString() }
+        return findNodesByClassName(rootNode, "android.widget.EditText")
+            .mapNotNull { it.text?.toString() }
             .firstNotNullOfOrNull { extractUrlFromText(it) }
     }
 
     private fun findUrlByContentDescription(rootNode: AccessibilityNodeInfo): String? {
-        return findAllNodes(rootNode).mapNotNull { it.contentDescription?.toString() }
+        return findAllNodes(rootNode)
+            .mapNotNull { it.contentDescription?.toString() }
+            .firstNotNullOfOrNull { extractUrlFromText(it) }
+    }
+
+    private fun findUrlInTextContent(rootNode: AccessibilityNodeInfo): String? {
+        return findAllNodes(rootNode)
+            .mapNotNull { it.text?.toString() }
             .firstNotNullOfOrNull { extractUrlFromText(it) }
     }
 
     private fun findNodesByClassName(
-        rootNode: AccessibilityNodeInfo, className: String
+        rootNode: AccessibilityNodeInfo,
+        className: String
     ): List<AccessibilityNodeInfo> {
         val nodes = mutableListOf<AccessibilityNodeInfo>()
 
@@ -739,11 +739,8 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
             if (node.className?.toString() == className) {
                 nodes.add(node)
             }
-
             for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { child ->
-                    traverse(child)
-                }
+                node.getChild(i)?.let { child -> traverse(child) }
             }
         }
 
@@ -757,9 +754,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         fun traverse(node: AccessibilityNodeInfo) {
             nodes.add(node)
             for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { child ->
-                    traverse(child)
-                }
+                node.getChild(i)?.let { child -> traverse(child) }
             }
         }
 
@@ -767,17 +762,32 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         return nodes
     }
 
+    private fun extractUrlRecursively(node: AccessibilityNodeInfo): String? {
+        node.text?.toString()?.let { text ->
+            extractUrlFromText(text)?.let { return it }
+        }
+
+        node.contentDescription?.toString()?.let { desc ->
+            extractUrlFromText(desc)?.let { return it }
+        }
+
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { child ->
+                extractUrlRecursively(child)?.let { url -> return url }
+            }
+        }
+
+        return null
+    }
+
     private fun extractUrlFromText(text: String): String? {
-        // First try to extract URL from mixed text content
         val urlPattern = Regex("https?://\\S+")
         val match = urlPattern.find(text)
 
         return match?.value?.let { url ->
-            // Clean up the extracted URL (remove trailing punctuation)
             val cleanedUrl = url.trimEnd('.', ',', '!', '?', ')', '}', ']')
             if (isValidUrlFormat(cleanedUrl)) cleanedUrl else null
         } ?: run {
-            // If no http/https URL found, check if the entire text is a domain
             if (isPossibleDomain(text)) {
                 val urlWithProtocol = "https://$text"
                 if (isValidUrlFormat(urlWithProtocol)) urlWithProtocol else null
@@ -786,13 +796,11 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     }
 
     private fun isPossibleDomain(text: String): Boolean {
-        // Check if text looks like a domain (contains dot, no spaces, reasonable length)
         return text.contains(".") &&
                 !text.contains(" ") &&
-                text.length in 4..253 && // Valid domain length range
+                text.length in 4..253 &&
                 !text.contains("\n") &&
                 !text.contains("\t") &&
-                // Simple check for valid domain characters
                 text.matches(Regex("^[a-zA-Z0-9.-]+$"))
     }
 
@@ -829,7 +837,11 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
                 }
             } ?: false
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking blocked domain for URL: $url", e)
+            Log.e(
+                WebsitesBlockingAccessibilityService.Companion.TAG,
+                "Error checking blocked domain for URL: $url",
+                e
+            )
             false
         }
     }
