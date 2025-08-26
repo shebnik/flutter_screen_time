@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.PixelFormat
@@ -132,10 +133,51 @@ class BlockingService : AccessibilityService() {
         }
     }
 
+    fun saveServiceConfiguration(context: Context, intent: Intent) {
+        val prefs = context.getSharedPreferences("blocking_service_config", Context.MODE_PRIVATE)
+        val editor = prefs.edit()
+
+        intent.getStringArrayListExtra("BUNDLE_IDS")?.let {
+            editor.putStringSet("blocked_apps", it.toSet())
+        }
+
+        intent.getStringArrayListExtra("BLOCKED_WEB_DOMAINS")?.let {
+            editor.putStringSet("blocked_domains", it.toSet())
+        }
+
+        intent.getStringExtra("BLOCK_OVERLAY_LAYOUT_PACKAGE")?.let {
+            editor.putString("caller_package", it)
+        }
+
+        intent.getStringExtra("NOTIFICATION_TITLE")?.let {
+            editor.putString("notification_title", it)
+        }
+
+        intent.getStringExtra("NOTIFICATION_BODY")?.let {
+            editor.putString("notification_body", it)
+        }
+
+        editor.putBoolean("block_websites_only_in_browsers",
+            intent.getBooleanExtra("BLOCK_WEBSITES_ONLY_IN_BROWSERS", true))
+
+        editor.putBoolean("use_overlay_countdown",
+            intent.getBooleanExtra("USE_OVERLAY_COUNTDOWN", false))
+
+        editor.putInt("overlay_countdown_seconds",
+            intent.getIntExtra("OVERLAY_COUNTDOWN_SECONDS", 5))
+
+        intent.getStringExtra("BLOCK_OVERLAY_LAYOUT_NAME")?.let {
+            editor.putString("layout_name", it)
+        }
+
+        editor.apply()
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Unified blocking service started")
 
         intent?.let {
+            saveServiceConfiguration(this, it)
             // Extract both app and website blocking data
             blockedApps = it.getStringArrayListExtra(Argument.BUNDLE_IDS) ?: emptyList()
             blockedDomains = it.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: emptyList()
