@@ -4,7 +4,6 @@ import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
-import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.PixelFormat
@@ -33,7 +32,6 @@ class BlockingService : AccessibilityService() {
 
     // Website blocking properties
     private var blockedDomains: List<String> = emptyList()
-    private var blockWebsitesOnlyInBrowsers = true
     private var currentUrl: String? = null
 
     // Common properties
@@ -47,7 +45,7 @@ class BlockingService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var monitoringRunnable: Runnable? = null
     private var lastBlockTime = 0L
-    private val blockCooldownMs = 2000L
+    private val blockCooldownMs = 1500L // Reduced cooldown for better responsiveness
 
     // Overlay properties
     private var layoutName: String = DEFAULT_LAYOUT_NAME
@@ -63,54 +61,17 @@ class BlockingService : AccessibilityService() {
 
     private lateinit var stopBlockingReceiver: StopBlockingReceiver
 
-    // Browser package names to monitor with their URL extraction methods
-    private val browserPackages = mapOf(
-        "com.android.chrome" to BrowserType.CHROME,
-        "com.chrome.beta" to BrowserType.CHROME,
-        "com.chrome.dev" to BrowserType.CHROME,
-        "com.chrome.canary" to BrowserType.CHROME,
-        "org.mozilla.firefox" to BrowserType.FIREFOX,
-        "org.mozilla.firefox_beta" to BrowserType.FIREFOX,
-        "com.microsoft.emmx" to BrowserType.EDGE,
-        "com.opera.browser" to BrowserType.OPERA,
-        "com.opera.browser.beta" to BrowserType.OPERA,
-        "com.opera.mini.native" to BrowserType.OPERA,
-        "com.sec.android.app.sbrowser" to BrowserType.SAMSUNG,
-        "com.samsung.android.sbrowser" to BrowserType.SAMSUNG,
-        "com.UCMobile.intl" to BrowserType.UC_BROWSER,
-        "com.brave.browser" to BrowserType.BRAVE,
-        "org.chromium.webview_shell" to BrowserType.CHROMIUM,
-        "com.kiwibrowser.browser" to BrowserType.KIWI,
-        "com.duckduckgo.mobile.android" to BrowserType.DUCKDUCKGO,
-        "com.vivaldi.browser" to BrowserType.VIVALDI
-    )
-
-    // Apps that commonly use WebView for displaying web content
-    private val webViewPackages = setOf(
-        "com.facebook.katana", "com.instagram.android", "com.twitter.android",
-        "com.linkedin.android", "com.pinterest", "com.reddit.frontpage",
-        "com.tumblr", "com.medium.reader", "com.flipboard.app",
-        "com.google.android.apps.news", "com.microsoft.office.outlook",
-        "com.slack", "com.discord", "com.whatsapp", "com.telegram.messenger",
-        "com.viber.voip", "com.skype.raider", "com.spotify.music",
-        "com.netflix.mediaclient", "com.amazon.mShop.android.shopping",
-        "com.ebay.mobile", "com.paypal.android.p2pmobile", "org.telegram.messenger"
-    )
-
-    private enum class BrowserType {
-        CHROME, FIREFOX, EDGE, OPERA, SAMSUNG, UC_BROWSER, BRAVE, CHROMIUM, KIWI, DUCKDUCKGO, VIVALDI
-    }
-
     companion object {
         const val TAG = "BlockingService"
         const val PREFS_NAME = "blocking_service_config"
-        const val MONITORING_INTERVAL = 1000L // 1 second
+        const val MONITORING_INTERVAL = 800L // Faster monitoring for better detection
+        const val URL_CHECK_DELAY = 150L // Faster URL checking
         const val ACTION_STOP_BLOCKING = "com.shebnik.flutter_screen_time.STOP_BLOCKING"
         const val ACTION_STOP_BLOCKING_APPS = "com.shebnik.flutter_screen_time.STOP_BLOCKING_APPS"
         const val ACTION_STOP_BLOCKING_WEBSITES =
             "com.shebnik.flutter_screen_time.STOP_BLOCKING_WEBSITES"
         const val BACK_PRESS_COUNT = 10
-        const val BACK_PRESS_INTERVAL = 100L // 100ms between back presses
+        const val BACK_PRESS_INTERVAL = 100L
 
         const val DEFAULT_LAYOUT_NAME = "block_overlay"
         const val DEFAULT_COUNT_LAYOUT_NAME = "block_overlay_count"
@@ -159,10 +120,6 @@ class BlockingService : AccessibilityService() {
             notificationBody =
                 it.getStringExtra(Argument.NOTIFICATION_BODY) ?: getDefaultNotificationBody()
             editor.putString(Argument.NOTIFICATION_BODY, notificationBody)
-
-            blockWebsitesOnlyInBrowsers =
-                it.getBooleanExtra(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, true)
-            editor.putBoolean(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, blockWebsitesOnlyInBrowsers)
 
             val customIconName = it.getStringExtra(Argument.NOTIFICATION_ICON)
             editor.putString(Argument.NOTIFICATION_ICON, customIconName)
@@ -218,25 +175,18 @@ class BlockingService : AccessibilityService() {
         event ?: return
         if (!isServiceActive || blockedDomains.isEmpty()) return
 
-        val packageName = event.packageName?.toString() ?: return
-
-        val shouldMonitor = if (blockWebsitesOnlyInBrowsers) {
-            browserPackages.containsKey(packageName) || webViewPackages.contains(packageName)
-        } else {
-            true
-        }
-
-        if (shouldMonitor) {
-            if (intArrayOf(
-                    AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
-                    AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
-                    AccessibilityEvent.TYPE_VIEW_FOCUSED,
-                    AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
-                ).contains(event.eventType)
-            ) {
-                handler.removeCallbacks(urlCheckRunnable)
-                handler.postDelayed(urlCheckRunnable, 200)
-            }
+        // Monitor ALL apps for website content - no restrictions
+        if (intArrayOf(
+                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+                AccessibilityEvent.TYPE_VIEW_FOCUSED,
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
+                AccessibilityEvent.TYPE_VIEW_CLICKED,
+                AccessibilityEvent.TYPE_VIEW_SELECTED
+            ).contains(event.eventType)
+        ) {
+            handler.removeCallbacks(urlCheckRunnable)
+            handler.postDelayed(urlCheckRunnable, URL_CHECK_DELAY)
         }
     }
 
@@ -245,7 +195,7 @@ class BlockingService : AccessibilityService() {
             val rootNode = rootInActiveWindow
             if (rootNode != null) {
                 val packageName = rootNode.packageName?.toString()
-                if (packageName != null && shouldMonitorPackageForWebsite(packageName)) {
+                if (packageName != null) {
                     checkUrlAndPerformAction(packageName, rootNode)
                 }
             }
@@ -292,6 +242,13 @@ class BlockingService : AccessibilityService() {
             }
 
             foregroundApp?.let { packageName ->
+                // Skip blocking the caller package (screen time/parental control app)
+                if (packageName == callerPackageName) {
+                    Log.d(TAG, "Skipping caller package: $packageName")
+                    hideOverlay()
+                    return
+                }
+
                 // Check for blocked apps first
                 if (blockedApps.contains(packageName)) {
                     Log.d(TAG, "Blocked app detected: $packageName")
@@ -304,19 +261,11 @@ class BlockingService : AccessibilityService() {
                     return
                 }
 
-                // Check for website monitoring
+                // Check for website content in ALL apps if domains are blocked
                 if (blockedDomains.isNotEmpty()) {
-                    if (!shouldMonitorPackageForWebsite(packageName)) {
-                        currentUrl = null
-                        // Don't hide overlay if countdown is active
-                        if (!useOverlayCountdown || !isOverlayShowing || countdownRunnable == null) {
-                            hideOverlay()
-                        }
-                    } else {
-                        handler.postDelayed({
-                            checkCurrentAppUrl(packageName)
-                        }, 500)
-                    }
+                    handler.postDelayed({
+                        checkCurrentAppUrl(packageName)
+                    }, 300)
                 } else {
                     // Don't hide overlay if countdown is active
                     if (!useOverlayCountdown || !isOverlayShowing || countdownRunnable == null) {
@@ -326,14 +275,6 @@ class BlockingService : AccessibilityService() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error checking foreground app", e)
-        }
-    }
-
-    private fun shouldMonitorPackageForWebsite(packageName: String): Boolean {
-        return if (blockWebsitesOnlyInBrowsers) {
-            browserPackages.containsKey(packageName)
-        } else {
-            browserPackages.containsKey(packageName) || webViewPackages.contains(packageName)
         }
     }
 
@@ -355,13 +296,14 @@ class BlockingService : AccessibilityService() {
     private fun checkUrlAndPerformAction(packageName: String, rootNode: AccessibilityNodeInfo?) {
         rootNode ?: return
 
+        // Skip caller package
+        if (packageName == callerPackageName) {
+            return
+        }
+
         try {
-            val url = if (browserPackages.containsKey(packageName)) {
-                val browserType = browserPackages[packageName] ?: return
-                extractUrlFromBrowser(rootNode, browserType)
-            } else {
-                extractUrlFromWebView(rootNode)
-            }
+            // Just scan the entire screen - no special cases
+            val url = scanEntireScreenForUrls(rootNode)
 
             if (url != null) {
                 currentUrl = url
@@ -651,191 +593,234 @@ class BlockingService : AccessibilityService() {
         }
     }
 
-    // Website blocking URL extraction methods
-    private fun extractUrlFromBrowser(
-        rootNode: AccessibilityNodeInfo,
-        browserType: BrowserType
-    ): String? {
-        return when (browserType) {
-            BrowserType.CHROME -> extractChromeUrl(rootNode)
-            BrowserType.FIREFOX -> extractFirefoxUrl(rootNode)
-            BrowserType.EDGE -> extractEdgeUrl(rootNode)
-            BrowserType.SAMSUNG -> extractSamsungUrl(rootNode)
-            BrowserType.BRAVE -> extractBraveUrl(rootNode)
-            else -> extractGenericUrl(rootNode)
-        }
-    }
+    private fun scanEntireScreenForUrls(rootNode: AccessibilityNodeInfo): String? {
+        val allTextContent = mutableSetOf<String>() // Use Set to avoid duplicates
 
-    private fun extractUrlFromWebView(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlInWebView(rootNode) ?: findUrlByContentDescription(rootNode)
-        ?: findUrlInTextContent(rootNode)
-    }
+        // Collect ALL text content from the screen
+        collectAllScreenContent(rootNode, allTextContent)
 
-    private fun findUrlInWebView(rootNode: AccessibilityNodeInfo): String? {
-        val webViewNodes = findNodesByClassName(rootNode, "android.webkit.WebView")
-        for (node in webViewNodes) {
-            node.contentDescription?.toString()?.let { desc ->
-                extractUrlFromText(desc)?.let { return it }
+        // Process all collected text
+        for (text in allTextContent) {
+            val foundUrl = extractUrlFromText(text)
+            if (foundUrl != null) {
+                return foundUrl
             }
+        }
 
-            for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { child ->
-                    extractUrlRecursively(child)?.let { url -> return url }
+        return null
+    }
+
+    private fun collectAllScreenContent(
+        node: AccessibilityNodeInfo,
+        textSet: MutableSet<String>
+    ) {
+        try {
+            // Get text content
+            node.text?.toString()?.let { text ->
+                if (text.isNotBlank() && text.length < 1000) {
+                    textSet.add(text.trim())
                 }
             }
-        }
-        return null
-    }
 
-    private fun extractChromeUrl(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlByResourceId(rootNode, "com.android.chrome:id/url_bar")
-            ?: findUrlByResourceId(rootNode, "com.android.chrome:id/location_bar_status")
-            ?: findUrlInEditText(rootNode)
-            ?: findUrlByContentDescription(rootNode)
-    }
-
-    private fun extractFirefoxUrl(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlByResourceId(rootNode, "org.mozilla.firefox:id/url_bar_title")
-            ?: findUrlByResourceId(
-                rootNode,
-                "org.mozilla.firefox:id/mozac_browser_toolbar_url_view"
-            )
-            ?: findUrlInEditText(rootNode)
-    }
-
-    private fun extractEdgeUrl(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlByResourceId(rootNode, "com.microsoft.emmx:id/url_bar")
-            ?: findUrlInEditText(rootNode)
-    }
-
-    private fun extractSamsungUrl(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlByResourceId(rootNode, "com.sec.android.app.sbrowser:id/location_bar")
-            ?: findUrlByResourceId(rootNode, "com.samsung.android.sbrowser:id/location_bar")
-            ?: findUrlInEditText(rootNode)
-    }
-
-    private fun extractBraveUrl(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlByResourceId(rootNode, "com.brave.browser:id/url_bar")
-            ?: findUrlInEditText(rootNode)
-    }
-
-    private fun extractGenericUrl(rootNode: AccessibilityNodeInfo): String? {
-        return findUrlInEditText(rootNode) ?: findUrlByContentDescription(rootNode)
-    }
-
-    private fun findUrlByResourceId(rootNode: AccessibilityNodeInfo, resourceId: String): String? {
-        val nodes = rootNode.findAccessibilityNodeInfosByViewId(resourceId)
-        for (node in nodes) {
-            val text = node.text?.toString()
-            if (text != null) {
-                extractUrlFromText(text)?.let { return it }
+            // Get content description
+            node.contentDescription?.toString()?.let { desc ->
+                if (desc.isNotBlank() && desc.length < 1000) {
+                    textSet.add(desc.trim())
+                }
             }
-        }
-        return null
-    }
 
-    private fun findUrlInEditText(rootNode: AccessibilityNodeInfo): String? {
-        return findNodesByClassName(rootNode, "android.widget.EditText")
-            .mapNotNull { it.text?.toString() }
-            .firstNotNullOfOrNull { extractUrlFromText(it) }
-    }
-
-    private fun findUrlByContentDescription(rootNode: AccessibilityNodeInfo): String? {
-        return findAllNodes(rootNode)
-            .mapNotNull { it.contentDescription?.toString() }
-            .firstNotNullOfOrNull { extractUrlFromText(it) }
-    }
-
-    private fun findUrlInTextContent(rootNode: AccessibilityNodeInfo): String? {
-        return findAllNodes(rootNode)
-            .mapNotNull { it.text?.toString() }
-            .firstNotNullOfOrNull { extractUrlFromText(it) }
-    }
-
-    private fun findNodesByClassName(
-        rootNode: AccessibilityNodeInfo,
-        className: String
-    ): List<AccessibilityNodeInfo> {
-        val nodes = mutableListOf<AccessibilityNodeInfo>()
-
-        fun traverse(node: AccessibilityNodeInfo) {
-            if (node.className?.toString() == className) {
-                nodes.add(node)
+            // Get tooltip text (Android P+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                node.tooltipText?.toString()?.let { tooltip ->
+                    if (tooltip.isNotBlank() && tooltip.length < 500) {
+                        textSet.add(tooltip.trim())
+                    }
+                }
             }
+
+            // Get view ID resource name (sometimes contains URLs)
+            node.viewIdResourceName?.let { viewId ->
+                if (viewId.isNotBlank() && viewId.length < 200) {
+                    textSet.add(viewId.trim())
+                }
+            }
+
+            // Recurse through all children
             for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { child -> traverse(child) }
+                try {
+                    node.getChild(i)?.let { child ->
+                        collectAllScreenContent(child, textSet)
+                    }
+                } catch (e: Exception) {
+                    // Continue if one child fails
+                    Log.d(TAG, "Error scanning child node: ${e.message}")
+                }
             }
+
+        } catch (e: Exception) {
+            Log.d(TAG, "Error scanning node: ${e.message}")
         }
-
-        traverse(rootNode)
-        return nodes
-    }
-
-    private fun findAllNodes(rootNode: AccessibilityNodeInfo): List<AccessibilityNodeInfo> {
-        val nodes = mutableListOf<AccessibilityNodeInfo>()
-
-        fun traverse(node: AccessibilityNodeInfo) {
-            nodes.add(node)
-            for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { child -> traverse(child) }
-            }
-        }
-
-        traverse(rootNode)
-        return nodes
-    }
-
-    private fun extractUrlRecursively(node: AccessibilityNodeInfo): String? {
-        node.text?.toString()?.let { text ->
-            extractUrlFromText(text)?.let { return it }
-        }
-
-        node.contentDescription?.toString()?.let { desc ->
-            extractUrlFromText(desc)?.let { return it }
-        }
-
-        for (i in 0 until node.childCount) {
-            node.getChild(i)?.let { child ->
-                extractUrlRecursively(child)?.let { url -> return url }
-            }
-        }
-
-        return null
     }
 
     private fun extractUrlFromText(text: String): String? {
-        val urlPattern = Regex("https?://\\S+")
-        val match = urlPattern.find(text)
+        if (text.isBlank() || text.length > 1000) return null
 
-        return match?.value?.let { url ->
-            val cleanedUrl = url.trimEnd('.', ',', '!', '?', ')', '}', ']')
-            if (isValidUrlFormat(cleanedUrl)) cleanedUrl else null
-        } ?: run {
-            if (isPossibleDomain(text)) {
-                val urlWithProtocol = "https://$text"
-                if (isValidUrlFormat(urlWithProtocol)) urlWithProtocol else null
-            } else null
+        val cleanText = text.trim()
+
+        // Method 1: Find complete URLs with protocol
+        findCompleteUrl(cleanText)?.let { return it }
+
+        // Method 2: Find domains in the text (most common case)
+        findDomainInText(cleanText)?.let { return it }
+
+        // Method 3: Check if entire text is a domain
+        if (isValidDomainFormat(cleanText)) {
+            val normalizedDomain = normalizeDomain(cleanText)
+            if (isMatchingBlockedDomain(normalizedDomain)) {
+                return "https://$normalizedDomain"
+            }
+        }
+
+        return null
+    }
+
+    private fun findCompleteUrl(text: String): String? {
+        // Pattern for complete URLs
+        val urlPattern = Regex(
+            """https?://[^\s<>"'\[\]{}|\\^`]+""",
+            RegexOption.IGNORE_CASE
+        )
+
+        return urlPattern.findAll(text)
+            .map { it.value.trimEnd('.', ',', '!', '?', ')', '}', ']', ':', ';', '"', '\'') }
+            .firstOrNull { url ->
+                try {
+                    val urlObj = URL(url)
+                    val domain = urlObj.host?.removePrefix("www.")?.lowercase()
+                    domain != null && isMatchingBlockedDomain(domain)
+                } catch (_: Exception) {
+                    false
+                }
+            }
+    }
+
+    private fun findDomainInText(text: String): String? {
+        // Multiple patterns to catch different domain formats
+        val patterns = listOf(
+            // Standard domain pattern
+            Regex("""(?:^|\s|[^\w.-])((?:www\.)?[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,})(?:[^\w.-]|$)"""),
+            // Domain with common separators
+            Regex("""(?:^|[\s,;:()\[\]{}"'])((?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})(?:[\s,;:()\[\]{}"']|$)"""),
+            // Simple word boundary pattern
+            Regex("""\b((?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b""")
+        )
+
+        for (pattern in patterns) {
+            pattern.findAll(text).forEach { match ->
+                val domain = if (match.groupValues.size > 1) {
+                    match.groupValues[1]
+                } else {
+                    match.value
+                }.trim()
+
+                if (isValidDomainFormat(domain)) {
+                    val normalizedDomain = normalizeDomain(domain)
+                    if (isMatchingBlockedDomain(normalizedDomain)) {
+                        return "https://$normalizedDomain"
+                    }
+                }
+            }
+        }
+
+        // Fallback: Split text and check each word
+        val words = text.split(Regex("""[\s,;:()\[\]{}"'<>|\\^`]+"""))
+        for (word in words) {
+            val cleanWord = word.trim()
+            if (isValidDomainFormat(cleanWord)) {
+                val normalizedDomain = normalizeDomain(cleanWord)
+                if (isMatchingBlockedDomain(normalizedDomain)) {
+                    return "https://$normalizedDomain"
+                }
+            }
+        }
+
+        return null
+    }
+
+    private fun isValidDomainFormat(domain: String): Boolean {
+        if (domain.isBlank() || domain.length < 4 || domain.length > 253) return false
+
+        val cleanDomain = domain.trim()
+
+        // Basic format checks
+        if (!cleanDomain.contains(".") ||
+            cleanDomain.startsWith(".") ||
+            cleanDomain.endsWith(".") ||
+            cleanDomain.startsWith("-") ||
+            cleanDomain.endsWith("-") ||
+            cleanDomain.contains("..") ||
+            cleanDomain.contains(" ")
+        ) {
+            return false
+        }
+
+        // Count dots (reasonable subdomain levels)
+        val dotCount = cleanDomain.count { it == '.' }
+        if (dotCount < 1 || dotCount > 10) return false
+
+        // Check for valid characters
+        val validDomainPattern = Regex("""^[a-zA-Z0-9.-]+$""")
+        if (!cleanDomain.matches(validDomainPattern)) return false
+
+        // Check TLD (top-level domain)
+        val parts = cleanDomain.split(".")
+        val tld = parts.lastOrNull()
+        if (tld.isNullOrEmpty() || tld.length < 2 || !tld.matches(Regex("""^[a-zA-Z]{2,}$"""))) {
+            return false
+        }
+
+        // Check each part
+        return parts.all { part ->
+            part.isNotEmpty() &&
+                    part.length <= 63 &&
+                    !part.startsWith("-") &&
+                    !part.endsWith("-") &&
+                    part.matches(Regex("""^[a-zA-Z0-9-]+$"""))
         }
     }
 
-    private fun isPossibleDomain(text: String): Boolean {
-        return text.contains(".") &&
-                !text.contains(" ") &&
-                text.length in 4..253 &&
-                !text.contains("\n") &&
-                !text.contains("\t") &&
-                text.matches(Regex("^[a-zA-Z0-9.-]+$"))
+    private fun normalizeDomain(domain: String): String {
+        return domain.lowercase()
+            .removePrefix("www.")
+            .removePrefix("https://")
+            .removePrefix("http://")
+            .removeSuffix("/")
+            .trim()
     }
 
-    private fun isValidUrlFormat(url: String): Boolean {
-        return try {
-            val urlObj = URL(url)
-            // Additional validation
-            urlObj.host != null &&
-                    urlObj.host.isNotEmpty() &&
-                    urlObj.host.contains(".")
-        } catch (_: Exception) {
-            false
+    private fun isMatchingBlockedDomain(domain: String): Boolean {
+        val normalizedDomain = normalizeDomain(domain)
+
+        return blockedDomains.any { blockedDomain ->
+            val normalizedBlocked = normalizeDomain(blockedDomain)
+
+            when {
+                // Exact match
+                normalizedDomain == normalizedBlocked -> true
+
+                // Subdomain match (e.g., "mail.google.com" matches "google.com")
+                normalizedDomain.endsWith(".$normalizedBlocked") -> true
+
+                // Reverse match (e.g., "google.com" matches "mail.google.com" if that's what's blocked)
+                normalizedBlocked.endsWith(".$normalizedDomain") -> true
+
+                // Partial match for very similar domains (be careful with this)
+                normalizedDomain.contains(normalizedBlocked) &&
+                        normalizedBlocked.length >= 5 && // Only for reasonably long domains
+                        normalizedDomain.length - normalizedBlocked.length <= 10 -> true
+
+                else -> false
+            }
         }
     }
 
@@ -851,21 +836,18 @@ class BlockingService : AccessibilityService() {
             val domain = urlObj.host?.lowercase()
 
             domain?.let { hostDomain ->
-                blockedDomains.any { blockedDomain ->
-                    val cleanBlockedDomain = blockedDomain.lowercase().removePrefix("www.")
-                    val cleanHostDomain = hostDomain.removePrefix("www.")
-
-                    // Exact match or subdomain match
-                    cleanHostDomain == cleanBlockedDomain || cleanHostDomain.endsWith(".$cleanBlockedDomain")
-                }
+                val normalizedDomain = normalizeDomain(hostDomain)
+                isMatchingBlockedDomain(normalizedDomain)
             } ?: false
-        } catch (e: Exception) {
-            Log.e(
-                WebsitesBlockingAccessibilityService.Companion.TAG,
-                "Error checking blocked domain for URL: $url",
-                e
-            )
-            false
+
+        } catch (_: Exception) {
+            // If URL parsing fails, try direct domain matching
+            val normalizedUrl = normalizeDomain(url)
+            if (isValidDomainFormat(normalizedUrl)) {
+                isMatchingBlockedDomain(normalizedUrl)
+            } else {
+                false
+            }
         }
     }
 }
