@@ -103,6 +103,7 @@ class BlockingService : AccessibilityService() {
 
     companion object {
         const val TAG = "BlockingService"
+        const val PREFS_NAME = "blocking_service_config"
         const val MONITORING_INTERVAL = 1000L // 1 second
         const val ACTION_STOP_BLOCKING = "com.shebnik.flutter_screen_time.STOP_BLOCKING"
         const val ACTION_STOP_BLOCKING_APPS = "com.shebnik.flutter_screen_time.STOP_BLOCKING_APPS"
@@ -133,79 +134,59 @@ class BlockingService : AccessibilityService() {
         }
     }
 
-    fun saveServiceConfiguration(context: Context, intent: Intent) {
-        val prefs = context.getSharedPreferences("blocking_service_config", Context.MODE_PRIVATE)
-        val editor = prefs.edit()
-
-        intent.getStringArrayListExtra("BUNDLE_IDS")?.let {
-            editor.putStringSet("blocked_apps", it.toSet())
-        }
-
-        intent.getStringArrayListExtra("BLOCKED_WEB_DOMAINS")?.let {
-            editor.putStringSet("blocked_domains", it.toSet())
-        }
-
-        intent.getStringExtra("BLOCK_OVERLAY_LAYOUT_PACKAGE")?.let {
-            editor.putString("caller_package", it)
-        }
-
-        intent.getStringExtra("NOTIFICATION_TITLE")?.let {
-            editor.putString("notification_title", it)
-        }
-
-        intent.getStringExtra("NOTIFICATION_BODY")?.let {
-            editor.putString("notification_body", it)
-        }
-
-        editor.putBoolean("block_websites_only_in_browsers",
-            intent.getBooleanExtra("BLOCK_WEBSITES_ONLY_IN_BROWSERS", true))
-
-        editor.putBoolean("use_overlay_countdown",
-            intent.getBooleanExtra("USE_OVERLAY_COUNTDOWN", false))
-
-        editor.putInt("overlay_countdown_seconds",
-            intent.getIntExtra("OVERLAY_COUNTDOWN_SECONDS", 5))
-
-        intent.getStringExtra("BLOCK_OVERLAY_LAYOUT_NAME")?.let {
-            editor.putString("layout_name", it)
-        }
-
-        editor.apply()
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Unified blocking service started")
 
         intent?.let {
-            saveServiceConfiguration(this, it)
+            val prefs = this.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            val editor = prefs.edit()
+
             // Extract both app and website blocking data
             blockedApps = it.getStringArrayListExtra(Argument.BUNDLE_IDS) ?: emptyList()
+            editor.putStringSet(Argument.BUNDLE_IDS, blockedApps.toSet())
+
             blockedDomains = it.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: emptyList()
+            editor.putStringSet(Argument.BLOCKED_WEB_DOMAINS, blockedDomains.toSet())
 
             callerPackageName =
                 it.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE) ?: packageName
+            editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, callerPackageName)
+
             notificationTitle =
                 it.getStringExtra(Argument.NOTIFICATION_TITLE) ?: getDefaultNotificationTitle()
+            editor.putString(Argument.NOTIFICATION_TITLE, notificationTitle)
+
             notificationBody =
                 it.getStringExtra(Argument.NOTIFICATION_BODY) ?: getDefaultNotificationBody()
+            editor.putString(Argument.NOTIFICATION_BODY, notificationBody)
 
             blockWebsitesOnlyInBrowsers =
                 it.getBooleanExtra(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, true)
+            editor.putBoolean(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, blockWebsitesOnlyInBrowsers)
 
             val customIconName = it.getStringExtra(Argument.NOTIFICATION_ICON)
+            editor.putString(Argument.NOTIFICATION_ICON, customIconName)
             customIconResId = if (customIconName != null) {
                 NotificationUtil.getIconResource(this, customIconName, callerPackageName)
             } else null
 
             val groupIconName = it.getStringExtra(Argument.NOTIFICATION_GROUP_ICON)
+            editor.putString(Argument.NOTIFICATION_GROUP_ICON, groupIconName)
             groupIconResId = if (groupIconName != null) {
                 NotificationUtil.getIconResource(this, groupIconName, callerPackageName)
             } else null
 
             useOverlayCountdown = it.getBooleanExtra(Argument.USE_OVERLAY_COUNTDOWN, false)
+            editor.putBoolean(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
+
             overlayCountdownSeconds = it.getIntExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, 5)
+            editor.putInt(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
+
             layoutName = it.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME)
                 ?: if (useOverlayCountdown) DEFAULT_COUNT_LAYOUT_NAME else DEFAULT_LAYOUT_NAME
+            editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_NAME, layoutName)
+
+            editor.apply()
         }
 
         isServiceActive = true
