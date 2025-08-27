@@ -24,7 +24,6 @@ import com.shebnik.flutter_screen_time.receiver.StopBlockingReceiver
 import com.shebnik.flutter_screen_time.util.NotificationUtil
 import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
 import java.net.URL
-import androidx.core.content.edit
 
 class BlockingService : AccessibilityService() {
 
@@ -124,106 +123,103 @@ class BlockingService : AccessibilityService() {
     }
 
     private fun loadConfiguration(intent: Intent?, prefs: android.content.SharedPreferences) {
-        prefs.edit {
+        val editor = prefs.edit()
 
-            // Load blocked apps - prefer intent, fallback to prefs
-            val intentBlockedApps = intent?.getStringArrayListExtra(Argument.BUNDLE_IDS)
-            blockedApps = intentBlockedApps ?: prefs.getStringSet(
-                Argument.BUNDLE_IDS,
-                null
-            )?.toList()
-                    ?: emptyList()
-            intentBlockedApps?.let { putStringSet(Argument.BUNDLE_IDS, it.toSet()) }
+        // Load blocked apps - prefer intent, fallback to prefs
+        val intentBlockedApps = intent?.getStringArrayListExtra(Argument.BUNDLE_IDS)
+        blockedApps = intentBlockedApps ?: prefs.getStringSet(
+            Argument.BUNDLE_IDS,
+            null
+        )?.toList()
+                ?: emptyList()
+        intentBlockedApps?.let { editor.putStringSet(Argument.BUNDLE_IDS, it.toSet()) }
 
-            // Load blocked domains - prefer intent, fallback to prefs
-            val intentBlockedDomains = intent?.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS)
-            blockedDomains = intentBlockedDomains ?: prefs.getStringSet(
-                Argument.BLOCKED_WEB_DOMAINS,
-                null
-            )?.toList()
-                    ?: emptyList()
-            intentBlockedDomains?.let { putStringSet(Argument.BLOCKED_WEB_DOMAINS, it.toSet()) }
+        // Load blocked domains - prefer intent, fallback to prefs
+        val intentBlockedDomains = intent?.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS)
+        blockedDomains = intentBlockedDomains ?: prefs.getStringSet(
+            Argument.BLOCKED_WEB_DOMAINS,
+            null
+        )?.toList()
+                ?: emptyList()
+        intentBlockedDomains?.let { editor.putStringSet(Argument.BLOCKED_WEB_DOMAINS, it.toSet()) }
 
-            // Load caller package name - prefer intent, fallback to prefs
-            val intentCallerPackage = intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE)
-            callerPackageName = intentCallerPackage ?: prefs.getString(
-                Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE,
-                null
-            ) ?: packageName
-            intentCallerPackage?.let { putString(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, it) }
+        // Load caller package name - prefer intent, fallback to prefs
+        val intentCallerPackage = intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE)
+        callerPackageName = intentCallerPackage ?: prefs.getString(
+            Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE,
+            null
+        ) ?: packageName
+        intentCallerPackage?.let { editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, it) }
 
-            // Load notification title - prefer intent, fallback to prefs, then default
-            val intentNotificationTitle = intent?.getStringExtra(Argument.NOTIFICATION_TITLE)
-            notificationTitle = intentNotificationTitle ?: prefs.getString(
-                Argument.NOTIFICATION_TITLE,
-                null
-            ) ?: getDefaultNotificationTitle()
-            intentNotificationTitle?.let { putString(Argument.NOTIFICATION_TITLE, it) }
+        // Load notification title - prefer intent, fallback to prefs, then default
+        val intentNotificationTitle = intent?.getStringExtra(Argument.NOTIFICATION_TITLE)
+        notificationTitle = intentNotificationTitle ?: prefs.getString(
+            Argument.NOTIFICATION_TITLE,
+            null
+        ) ?: getDefaultNotificationTitle()
+        intentNotificationTitle?.let { editor.putString(Argument.NOTIFICATION_TITLE, it) }
 
-            // Load notification body - prefer intent, fallback to prefs, then default
-            notificationBody =
-                intent?.getStringExtra(Argument.NOTIFICATION_BODY) ?: prefs.getString(
-                    Argument.NOTIFICATION_BODY,
-                    null
-                )
-                        ?: getDefaultNotificationBody()
-            intent?.getStringExtra(Argument.NOTIFICATION_BODY)?.let { intentValue ->
-                putString(Argument.NOTIFICATION_BODY, intentValue)
-            }
-
-            // Load custom icon - prefer intent, fallback to prefs
-            val customIconName =
-                intent?.getStringExtra(Argument.NOTIFICATION_ICON) ?: prefs.getString(
-                    Argument.NOTIFICATION_ICON,
-                    null
-                )
-            intent?.getStringExtra(Argument.NOTIFICATION_ICON)?.let { intentValue ->
-                putString(Argument.NOTIFICATION_ICON, intentValue)
-            }
-            customIconResId = if (customIconName != null) {
-                NotificationUtil.getIconResource(this, customIconName, callerPackageName)
-            } else null
-
-            // Load overlay countdown settings - prefer intent, fallback to prefs
-            useOverlayCountdown = when {
-                intent?.hasExtra(Argument.USE_OVERLAY_COUNTDOWN) == true ->
-                    intent.getBooleanExtra(Argument.USE_OVERLAY_COUNTDOWN, true)
-
-                prefs.contains(Argument.USE_OVERLAY_COUNTDOWN) ->
-                    prefs.getBoolean(Argument.USE_OVERLAY_COUNTDOWN, true)
-
-                else -> true
-            }
-
-            if (intent?.hasExtra(Argument.USE_OVERLAY_COUNTDOWN) == true) {
-                putBoolean(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
-            }
-
-            overlayCountdownSeconds = when {
-                intent?.hasExtra(Argument.OVERLAY_COUNTDOWN_SECONDS) == true ->
-                    intent.getIntExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, 10)
-
-                prefs.contains(Argument.OVERLAY_COUNTDOWN_SECONDS) ->
-                    prefs.getInt(Argument.OVERLAY_COUNTDOWN_SECONDS, 10)
-
-                else -> 10
-            }
-
-            if (intent?.hasExtra(Argument.OVERLAY_COUNTDOWN_SECONDS) == true) {
-                putInt(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
-            }
-
-            // Load layout name - prefer intent, fallback to prefs, then default
-            layoutName =
-                intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME) ?: prefs.getString(
-                    Argument.BLOCK_OVERLAY_LAYOUT_NAME,
-                    null
-                ) ?: if (useOverlayCountdown) DEFAULT_COUNT_LAYOUT_NAME else DEFAULT_LAYOUT_NAME
-            intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME)?.let { intentValue ->
-                putString(Argument.BLOCK_OVERLAY_LAYOUT_NAME, intentValue)
-            }
-
+        // Load notification body - prefer intent, fallback to prefs, then default
+        notificationBody = intent?.getStringExtra(Argument.NOTIFICATION_BODY) ?: prefs.getString(
+            Argument.NOTIFICATION_BODY,
+            null
+        )
+                ?: getDefaultNotificationBody()
+        intent?.getStringExtra(Argument.NOTIFICATION_BODY)?.let { intentValue ->
+            editor.putString(Argument.NOTIFICATION_BODY, intentValue)
         }
+
+        // Load custom icon - prefer intent, fallback to prefs
+        val customIconName = intent?.getStringExtra(Argument.NOTIFICATION_ICON) ?: prefs.getString(
+            Argument.NOTIFICATION_ICON,
+            null
+        )
+        intent?.getStringExtra(Argument.NOTIFICATION_ICON)?.let { intentValue ->
+            editor.putString(Argument.NOTIFICATION_ICON, intentValue)
+        }
+        customIconResId = if (customIconName != null) {
+            NotificationUtil.getIconResource(this, customIconName, callerPackageName)
+        } else null
+
+        // Load overlay countdown settings - prefer intent, fallback to prefs
+        useOverlayCountdown = when {
+            intent?.hasExtra(Argument.USE_OVERLAY_COUNTDOWN) == true ->
+                intent.getBooleanExtra(Argument.USE_OVERLAY_COUNTDOWN, true)
+
+            prefs.contains(Argument.USE_OVERLAY_COUNTDOWN) ->
+                prefs.getBoolean(Argument.USE_OVERLAY_COUNTDOWN, true)
+
+            else -> true
+        }
+
+        if (intent?.hasExtra(Argument.USE_OVERLAY_COUNTDOWN) == true) {
+            editor.putBoolean(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
+        }
+
+        overlayCountdownSeconds = when {
+            intent?.hasExtra(Argument.OVERLAY_COUNTDOWN_SECONDS) == true ->
+                intent.getIntExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, 10)
+
+            prefs.contains(Argument.OVERLAY_COUNTDOWN_SECONDS) ->
+                prefs.getInt(Argument.OVERLAY_COUNTDOWN_SECONDS, 10)
+
+            else -> 10
+        }
+
+        if (intent?.hasExtra(Argument.OVERLAY_COUNTDOWN_SECONDS) == true) {
+            editor.putInt(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
+        }
+
+        // Load layout name - prefer intent, fallback to prefs, then default
+        layoutName = intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME) ?: prefs.getString(
+            Argument.BLOCK_OVERLAY_LAYOUT_NAME,
+            null
+        ) ?: if (useOverlayCountdown) DEFAULT_COUNT_LAYOUT_NAME else DEFAULT_LAYOUT_NAME
+        intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME)?.let { intentValue ->
+            editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_NAME, intentValue)
+        }
+
+        editor.apply()
     }
 
     override fun onInterrupt() {
