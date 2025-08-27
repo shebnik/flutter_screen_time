@@ -29,11 +29,13 @@ object NotificationUtil {
     fun createNotificationChannel(context: Context) {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Screen Time Blocking Services",
+            "Blocker Service",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Notifications for app and website blocking services"
+            description = "Notification for app and website blocking"
             setShowBadge(false)
+            setSound(null, null)
+            enableVibration(false)
         }
 
         val notificationManager =
@@ -60,9 +62,10 @@ object NotificationUtil {
             .setContentTitle(notificationTitle)
             .setContentText(notificationBody)
             .setSmallIcon(iconResId)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
             .setGroup(GROUP_KEY)
+            .setSilent(true)
             .build()
 
         updateGroupSummary(context, groupIconResId)
@@ -90,9 +93,10 @@ object NotificationUtil {
             .setContentTitle(notificationTitle)
             .setContentText(notificationBody)
             .setSmallIcon(iconResId)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
             .setGroup(GROUP_KEY)
+            .setSilent(true)
             .build()
 
         updateGroupSummary(context, groupIconResId)
@@ -114,16 +118,14 @@ object NotificationUtil {
         val notificationBody = body ?: "Monitoring $blockedAppsCount apps and $blockedDomainsCount domains"
         val iconResId = customIconResId ?: android.R.drawable.ic_lock_idle_lock
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(notificationTitle)
             .setContentText(notificationBody)
             .setSmallIcon(iconResId)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
+            .setSilent(true)
             .build()
-        
-        context.startForegroundWithNotification(BLOCKING_NOTIFICATION_ID, notification)
-        return notification
     }
 
     /**
