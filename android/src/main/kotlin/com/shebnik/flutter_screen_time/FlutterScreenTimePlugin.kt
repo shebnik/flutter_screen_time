@@ -212,13 +212,9 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val notificationTitle = args[Argument.NOTIFICATION_TITLE] as String?
                 val notificationBody = args[Argument.NOTIFICATION_BODY] as String?
                 val notificationIcon = args[Argument.NOTIFICATION_ICON] as String?
-                val notificationGroupIcon = args[Argument.NOTIFICATION_GROUP_ICON] as String?
 
-                val blockWebsitesOnlyInBrowsers =
-                    args[Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS] as Boolean? ?: true
-
-                val useOverlayCountdown = args[Argument.USE_OVERLAY_COUNTDOWN] as Boolean? ?: false
-                val overlayCountdownSeconds = args[Argument.OVERLAY_COUNTDOWN_SECONDS] as Int? ?: 5
+                val useOverlayCountdown = args[Argument.USE_OVERLAY_COUNTDOWN] as Boolean? ?: true
+                val overlayCountdownSeconds = args[Argument.OVERLAY_COUNTDOWN_SECONDS] as Int? ?: 10
 
                 val response = FlutterScreenTimeMethod.blockAppsAndWebdomains(
                     context,
@@ -227,8 +223,6 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     notificationTitle,
                     notificationBody,
                     notificationIcon,
-                    notificationGroupIcon,
-                    blockWebsitesOnlyInBrowsers,
                     layoutName,
                     useOverlayCountdown,
                     overlayCountdownSeconds

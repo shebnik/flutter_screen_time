@@ -465,8 +465,6 @@ object FlutterScreenTimeMethod {
         notificationTitle: String? = null,
         notificationBody: String? = null,
         notificationIcon: String? = null,
-        notificationGroupIcon: String? = null,
-        blockWebsitesOnlyInBrowsers: Boolean,
         layoutName: String?,
         useOverlayCountdown: Boolean,
         overlayCountdownSeconds: Int,
@@ -481,9 +479,6 @@ object FlutterScreenTimeMethod {
             putExtra(Argument.NOTIFICATION_TITLE, notificationTitle)
             putExtra(Argument.NOTIFICATION_BODY, notificationBody)
             putExtra(Argument.NOTIFICATION_ICON, notificationIcon)
-            putExtra(Argument.NOTIFICATION_GROUP_ICON, notificationGroupIcon)
-
-            putExtra(Argument.BLOCK_WEBSITES_ONLY_IN_BROWSERS, blockWebsitesOnlyInBrowsers)
 
             putExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME, layoutName)
             putExtra(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)

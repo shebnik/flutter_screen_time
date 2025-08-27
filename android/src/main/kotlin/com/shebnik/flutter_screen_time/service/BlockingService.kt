@@ -39,7 +39,6 @@ class BlockingService : AccessibilityService() {
     private var notificationTitle: String? = null
     private var notificationBody: String? = null
     private var customIconResId: Int? = null
-    private var groupIconResId: Int? = null
     private var isServiceActive = false
     private var isMonitoring = false
     private val handler = Handler(Looper.getMainLooper())
@@ -98,53 +97,10 @@ class BlockingService : AccessibilityService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Unified blocking service started")
 
-        intent?.let {
-            val prefs = this.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            val editor = prefs.edit()
+        val prefs = this.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
-            // Extract both app and website blocking data
-            blockedApps = it.getStringArrayListExtra(Argument.BUNDLE_IDS) ?: emptyList()
-            editor.putStringSet(Argument.BUNDLE_IDS, blockedApps.toSet())
-
-            blockedDomains = it.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: emptyList()
-            editor.putStringSet(Argument.BLOCKED_WEB_DOMAINS, blockedDomains.toSet())
-
-            callerPackageName =
-                it.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE) ?: packageName
-            editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, callerPackageName)
-
-            notificationTitle =
-                it.getStringExtra(Argument.NOTIFICATION_TITLE) ?: getDefaultNotificationTitle()
-            editor.putString(Argument.NOTIFICATION_TITLE, notificationTitle)
-
-            notificationBody =
-                it.getStringExtra(Argument.NOTIFICATION_BODY) ?: getDefaultNotificationBody()
-            editor.putString(Argument.NOTIFICATION_BODY, notificationBody)
-
-            val customIconName = it.getStringExtra(Argument.NOTIFICATION_ICON)
-            editor.putString(Argument.NOTIFICATION_ICON, customIconName)
-            customIconResId = if (customIconName != null) {
-                NotificationUtil.getIconResource(this, customIconName, callerPackageName)
-            } else null
-
-            val groupIconName = it.getStringExtra(Argument.NOTIFICATION_GROUP_ICON)
-            editor.putString(Argument.NOTIFICATION_GROUP_ICON, groupIconName)
-            groupIconResId = if (groupIconName != null) {
-                NotificationUtil.getIconResource(this, groupIconName, callerPackageName)
-            } else null
-
-            useOverlayCountdown = it.getBooleanExtra(Argument.USE_OVERLAY_COUNTDOWN, false)
-            editor.putBoolean(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
-
-            overlayCountdownSeconds = it.getIntExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, 5)
-            editor.putInt(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
-
-            layoutName = it.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME)
-                ?: if (useOverlayCountdown) DEFAULT_COUNT_LAYOUT_NAME else DEFAULT_LAYOUT_NAME
-            editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_NAME, layoutName)
-
-            editor.apply()
-        }
+        // Load configuration - prioritize prefs over intent if null
+        loadConfiguration(intent, prefs)
 
         isServiceActive = true
 
@@ -154,8 +110,7 @@ class BlockingService : AccessibilityService() {
             body = notificationBody,
             customIconResId = customIconResId,
             blockedAppsCount = blockedApps.size,
-            blockedDomainsCount = blockedDomains.size,
-            groupIconResId = groupIconResId
+            blockedDomainsCount = blockedDomains.size
         )
         startForeground(NotificationUtil.BLOCKING_NOTIFICATION_ID, notification)
 
@@ -165,6 +120,111 @@ class BlockingService : AccessibilityService() {
             "Unified blocking started - Apps: ${blockedApps.size}, Domains: ${blockedDomains.size}"
         )
         return START_STICKY
+    }
+
+    private fun loadConfiguration(intent: Intent?, prefs: android.content.SharedPreferences) {
+        val editor = prefs.edit()
+
+        // Load blocked apps - prefer intent, fallback to prefs
+        blockedApps = intent?.getStringArrayListExtra(Argument.BUNDLE_IDS) ?: prefs.getStringSet(
+            Argument.BUNDLE_IDS,
+            null
+        )?.toList()
+                ?: emptyList()
+        if (intent != null && intent.hasExtra(Argument.BUNDLE_IDS)) {
+            editor.putStringSet(Argument.BUNDLE_IDS, blockedApps.toSet())
+        }
+
+        // Load blocked domains - prefer intent, fallback to prefs
+        blockedDomains =
+            intent?.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: prefs.getStringSet(
+                Argument.BLOCKED_WEB_DOMAINS,
+                null
+            )?.toList()
+                    ?: emptyList()
+        if (intent != null && intent.hasExtra(Argument.BLOCKED_WEB_DOMAINS)) {
+            editor.putStringSet(Argument.BLOCKED_WEB_DOMAINS, blockedDomains.toSet())
+        }
+
+        // Load caller package name - prefer intent, fallback to prefs
+        callerPackageName =
+            intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE) ?: prefs.getString(
+                Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE,
+                null
+            )
+                    ?: packageName
+        if (intent != null && intent.hasExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE)) {
+            editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, callerPackageName)
+        }
+
+        // Load notification title - prefer intent, fallback to prefs, then default
+        notificationTitle = intent?.getStringExtra(Argument.NOTIFICATION_TITLE) ?: prefs.getString(
+            Argument.NOTIFICATION_TITLE,
+            null
+        )
+                ?: getDefaultNotificationTitle()
+        if (intent != null && intent.hasExtra(Argument.NOTIFICATION_TITLE)) {
+            editor.putString(Argument.NOTIFICATION_TITLE, notificationTitle)
+        }
+
+        // Load notification body - prefer intent, fallback to prefs, then default
+        notificationBody = intent?.getStringExtra(Argument.NOTIFICATION_BODY) ?: prefs.getString(
+            Argument.NOTIFICATION_BODY,
+            null
+        )
+                ?: getDefaultNotificationBody()
+        if (intent != null && intent.hasExtra(Argument.NOTIFICATION_BODY)) {
+            editor.putString(Argument.NOTIFICATION_BODY, notificationBody)
+        }
+
+        // Load custom icon - prefer intent, fallback to prefs
+        val customIconName = intent?.getStringExtra(Argument.NOTIFICATION_ICON) ?: prefs.getString(
+            Argument.NOTIFICATION_ICON,
+            null
+        )
+        if (intent != null && intent.hasExtra(Argument.NOTIFICATION_ICON)) {
+            editor.putString(Argument.NOTIFICATION_ICON, customIconName)
+        }
+        customIconResId = if (customIconName != null) {
+            NotificationUtil.getIconResource(this, customIconName, callerPackageName)
+        } else null
+
+        // Load overlay countdown settings - prefer intent, fallback to prefs
+        useOverlayCountdown = when {
+            intent?.hasExtra(Argument.USE_OVERLAY_COUNTDOWN) == true ->
+                intent.getBooleanExtra(Argument.USE_OVERLAY_COUNTDOWN, true)
+            prefs.contains(Argument.USE_OVERLAY_COUNTDOWN) ->
+                prefs.getBoolean(Argument.USE_OVERLAY_COUNTDOWN, true)
+            else -> true
+        }
+
+        if (intent?.hasExtra(Argument.USE_OVERLAY_COUNTDOWN) == true) {
+            editor.putBoolean(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
+        }
+
+
+        overlayCountdownSeconds = when {
+            intent?.hasExtra(Argument.OVERLAY_COUNTDOWN_SECONDS) == true ->
+                intent.getIntExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, 10)
+            prefs.contains(Argument.OVERLAY_COUNTDOWN_SECONDS) ->
+                prefs.getInt(Argument.OVERLAY_COUNTDOWN_SECONDS, 10)
+            else -> 10
+        }
+
+        if (intent?.hasExtra(Argument.OVERLAY_COUNTDOWN_SECONDS) == true) {
+            editor.putInt(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
+        }
+
+        // Load layout name - prefer intent, fallback to prefs, then default
+        layoutName = intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME) ?: prefs.getString(
+            Argument.BLOCK_OVERLAY_LAYOUT_NAME,
+            null
+        ) ?: if (useOverlayCountdown) DEFAULT_COUNT_LAYOUT_NAME else DEFAULT_LAYOUT_NAME
+        if (intent != null && intent.hasExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME)) {
+            editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_NAME, layoutName)
+        }
+
+        editor.apply()
     }
 
     override fun onInterrupt() {
@@ -552,7 +612,6 @@ class BlockingService : AccessibilityService() {
         }
 
         hideOverlay()
-        NotificationUtil.cleanupGroupSummary(this)
         Log.d(TAG, "Unified blocking service destroyed")
         super.onDestroy()
     }

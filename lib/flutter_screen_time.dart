@@ -221,12 +221,7 @@ class FlutterScreenTime {
   /// [androidNotificationBody] Custom body for the android notification.
   ///
   /// [androidNotificationIcon] Custom icon for the android notification.
-  ///
-  /// [blockWebsitesOnlyInBrowsers] If true, blocks websites only in browsers.
-  ///
-  /// [androidNotificationGroupIcon] Custom group icon for the android
-  /// notification.
-  ///
+  /// 
   /// [androidLayoutName] Custom layout for android blocking overlay.
   ///
   /// [androidUseOverlayCountdown] If true, closes web domain and app where it
@@ -243,8 +238,6 @@ class FlutterScreenTime {
     String? androidNotificationTitle,
     String? androidNotificationBody,
     String? androidNotificationIcon,
-    String? androidNotificationGroupIcon,
-    bool blockWebsitesOnlyInBrowsers = true,
     String? androidLayoutName,
     bool? androidUseOverlayCountdown,
     int? androidOverlayCountdownSeconds,
@@ -277,8 +270,6 @@ class FlutterScreenTime {
       androidNotificationTitle: androidNotificationTitle,
       androidNotificationBody: androidNotificationBody,
       androidNotificationIcon: androidNotificationIcon,
-      androidNotificationGroupIcon: androidNotificationGroupIcon,
-      blockWebsitesOnlyInBrowsers: blockWebsitesOnlyInBrowsers,
       androidLayoutName: androidLayoutName,
       androidUseOverlayCountdown: androidUseOverlayCountdown,
       androidOverlayCountdownSeconds: androidOverlayCountdownSeconds,

@@ -103,13 +103,12 @@ object NotificationUtil {
      * Creates a notification for a BlockingService
      */
     fun createBlockingNotification(
-        context: BlockingService,
+        context: Context,
         title: String?,
         body: String?,
         customIconResId: Int?,
         blockedAppsCount: Int,
-        blockedDomainsCount: Int,
-        groupIconResId: Int?
+        blockedDomainsCount: Int
     ): Notification {
         val notificationTitle = title ?: "Blocking Active"
         val notificationBody = body ?: "Monitoring $blockedAppsCount apps and $blockedDomainsCount domains"
@@ -121,11 +120,9 @@ object NotificationUtil {
             .setSmallIcon(iconResId)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
-            .setGroup(GROUP_KEY)
             .build()
-
-        context.startForegroundWithGroupedNotification(BLOCKING_NOTIFICATION_ID, notification)
-        updateGroupSummary(context, groupIconResId)
+        
+        context.startForegroundWithNotification(BLOCKING_NOTIFICATION_ID, notification)
         return notification
     }
 
