@@ -108,8 +108,10 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
       );
 
   Future<bool> blockAppsAndWebDomains({
-    required List<String>? androidBundleIds,
-    required List<String> webDomains,
+    FamilyActivitySelection? iOSSelection,
+    List<String>? androidBundleIds,
+    List<String>? webDomains,
+    bool isAdultWebsitesBlocked = false,
     String? androidNotificationTitle,
     String? androidNotificationBody,
     String? androidNotificationIcon,

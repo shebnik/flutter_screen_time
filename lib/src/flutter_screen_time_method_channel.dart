@@ -152,4 +152,38 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
         ) ??
         false;
   }
+
+  @override
+  Future<bool> blockAppsAndWebDomains({
+    FamilyActivitySelection? iOSSelection,
+    List<String>? androidBundleIds,
+    List<String>? webDomains,
+    bool isAdultWebsitesBlocked = false,
+    String? androidNotificationTitle,
+    String? androidNotificationBody,
+    String? androidNotificationIcon,
+    String? androidLayoutName,
+    bool? androidUseOverlayCountdown,
+    int? androidOverlayCountdownSeconds,
+  }) async {
+    final result =
+        await methodChannel.invokeMethod<bool>(
+          MethodName.blockAppsAndWebDomains,
+          {
+            Argument.selection: iOSSelection?.toMap(),
+            Argument.bundleIds: androidBundleIds,
+            Argument.blockedWebDomains: webDomains,
+            Argument.isAdultWebsitesBlocked: isAdultWebsitesBlocked,
+            Argument.notificationTitle: androidNotificationTitle,
+            Argument.notificationBody: androidNotificationBody,
+            Argument.notificationIcon: androidNotificationIcon,
+            Argument.blockOverlayLayoutName: androidLayoutName,
+            Argument.useOverlayCountdown: androidUseOverlayCountdown,
+            Argument.overlayCountdownSeconds: androidOverlayCountdownSeconds,
+          },
+        ) ??
+        false;
+
+    return result;
+  }
 }

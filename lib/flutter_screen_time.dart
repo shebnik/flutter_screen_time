@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_screen_time/src/flutter_screen_time_android.dart';
 import 'package:flutter_screen_time/src/flutter_screen_time_ios.dart';
 import 'package:flutter_screen_time/src/flutter_screen_time_platform_interface.dart';
@@ -200,7 +199,7 @@ class FlutterScreenTime {
     return FlutterScreenTimePlatform.instance.disableAllBlocking();
   }
 
-  /// Unified Service which blocks the specified apps and web domains
+  /// Unified method which blocks the specified apps and web domains
   /// indefinitely.
   ///
   /// On iOS [iOSSelection] is family activity selection containing encoded
@@ -242,31 +241,11 @@ class FlutterScreenTime {
     bool? androidUseOverlayCountdown,
     int? androidOverlayCountdownSeconds,
   }) {
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      final futures = <Future<bool>>[];
-      if (iOSSelection != null) {
-        futures.add(
-          FlutterScreenTimePlatform.instance.blockApps(
-            iOSSelection: iOSSelection,
-          ),
-        );
-      }
-      if (webDomains != null) {
-        futures.add(
-          FlutterScreenTimePlatform.instance.blockWebDomains(
-            webDomains: webDomains,
-            isAdultWebsitesBlocked: isAdultWebsitesBlocked,
-          ),
-        );
-      }
-      return Future.wait(
-        futures,
-      ).then((results) => results.every((result) => result));
-    }
-
-    return FlutterScreenTimeAndroid().blockAppsAndWebDomains(
+    return FlutterScreenTimePlatform.instance.blockAppsAndWebDomains(
+      iOSSelection: iOSSelection,
       androidBundleIds: androidBundleIds ?? [],
-      webDomains: webDomains ?? [],
+      isAdultWebsitesBlocked: isAdultWebsitesBlocked,
+      webDomains: webDomains,
       androidNotificationTitle: androidNotificationTitle,
       androidNotificationBody: androidNotificationBody,
       androidNotificationIcon: androidNotificationIcon,

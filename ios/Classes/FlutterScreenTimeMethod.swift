@@ -16,7 +16,7 @@ class FlutterScreenTimeMethod {
     
     func checkAuthorization(result: @escaping FlutterResult) -> Bool {
         let authStatus = getAuthorizationStatus()
-        if authStatus != "authorized" {
+        if authStatus != String(describing: AuthorizationStatus.approved) {
             logWarning("Family activity picker requested but not authorized: \(authStatus)")
             result(
                 FlutterError(
@@ -86,6 +86,69 @@ class FlutterScreenTimeMethod {
             }
         }
     }
+    
+    func blockAppsAndWebDomains(arguments: [String: Any], result: @escaping FlutterResult) {
+        Task {
+            // Check authorization first
+            if (!checkAuthorization(result: result)) {return}
+            
+            do {
+                // Handle app blocking if selection is provided
+                if let selection = arguments[Argument.SELECTION] as? [String: Any] {
+                    try await discourageSelection(with: selection)
+                }
+                
+                // Handle web domain blocking if web parameters are provided
+                if let adultWebsitesBlocked = arguments[Argument.IS_ADULT_WEBSITES_BLOCKED] as? Bool {
+                    // Check if blockedDomains is provided (can be null/nil or an array)
+                    let blockedDomains: [String]
+                    
+                    if arguments[Argument.BLOCKED_WEB_DOMAINS] is NSNull || arguments[Argument.BLOCKED_WEB_DOMAINS] == nil {
+                        // If null is provided, use empty array (this will unblock custom domains)
+                        blockedDomains = []
+                        logInfo("🔓 Blocked domains set to null - clearing custom domain blocks")
+                    } else if let domains = arguments[Argument.BLOCKED_WEB_DOMAINS] as? [String] {
+                        blockedDomains = domains
+                    } else {
+                        // Invalid format
+                        result(
+                            FlutterError(
+                                code: "INVALID_ARGUMENTS",
+                                message: "Invalid format for blockedWebDomains - expected array of strings or null",
+                                details: nil
+                            ))
+                        return
+                    }
+                    
+                    if blockedDomains.count > 50 {
+                        result(
+                            FlutterError(
+                                code: "TOO_MANY_BLOCKED_DOMAINS",
+                                message: "Too many blocked domains. Maximum is 50.",
+                                details: "Provided: \(blockedDomains.count)"
+                            ))
+                        return
+                    }
+                    
+                    try await FamilyControlsModel.shared.setWebContentBlocking(
+                        adultWebsitesBlocked: adultWebsitesBlocked,
+                        blockedDomains: blockedDomains
+                    )
+                    logSuccess("Web content blocking set successfully")
+                }
+                
+                logSuccess("Apps and web domains blocking set successfully")
+                result(true)
+            } catch {
+                result(
+                    FlutterError(
+                        code: "BLOCK_APPS_AND_WEB_DOMAINS_FAILED",
+                        message: "Failed to block apps and web domains",
+                        details: error.localizedDescription
+                    ))
+            }
+        }
+    }
 
     func disableAppsBlocking(result: @escaping FlutterResult) {
         // Check authorization first
@@ -125,7 +188,7 @@ class FlutterScreenTimeMethod {
         if(!checkAuthorization(result: result)) {return}
         Task {
             do {
-                try await encourageSelection(with: arguments)
+                try await encourageSelection(with: arguments[Argument.SELECTION] as? [String: Any] ?? [:])
                 logSuccess("Successfully encouraged selected apps")
                 result(true)
             } catch {
@@ -307,6 +370,7 @@ class FlutterScreenTimeMethod {
     }
     
     private func encourageSelection(with arguments: [String: Any]) async throws {
+        logDebug(String(describing: arguments))
         let model = FamilyControlsModel.shared
         
         // Decode tokens from Flutter

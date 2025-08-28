@@ -23,32 +23,47 @@ struct AppLabelView: View {
             case .application(let token):
                 Label(token)
                     .labelStyle(.titleAndIcon)
+                    .foregroundColor(.black) // Use foregroundColor instead of foregroundStyle for better compatibility
+                    .environment(\.colorScheme, .light)
+                    .preferredColorScheme(.light) // Additional override for the view
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(height: 50)
+                    .background(Color.white) // Optional: add white background to ensure contrast
             case .category(let token):
                 Label(token)
                     .labelStyle(.titleAndIcon)
+                    .foregroundColor(.black)
+                    .environment(\.colorScheme, .light)
+                    .preferredColorScheme(.light)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(height: 50)
+                    .background(Color.white)
             case .webDomain(let token):
                 Label(token)
                     .labelStyle(.titleAndIcon)
+                    .foregroundColor(.black)
+                    .environment(\.colorScheme, .light)
+                    .preferredColorScheme(.light)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(height: 50)
+                    .background(Color.white)
             }
         } else {
             switch tokenType {
             case .application:
                 Text("Application")
                     .font(.headline)
+                    .foregroundColor(.black)
                     .padding()
             case .category:
                 Text("Category")
                     .font(.headline)
+                    .foregroundColor(.black)
                     .padding()
             case .webDomain:
                 Text("Web Domain")
                     .font(.headline)
+                    .foregroundColor(.black)
                     .padding()
             }
         }
@@ -66,5 +81,8 @@ struct AppLabelView_Previews: PreviewProvider {
                 .foregroundColor(.secondary)
         }
         .padding()
+        .previewLayout(.sizeThatFits)
+        // Preview in both light and dark modes to test
+        .environment(\.colorScheme, .dark)
     }
 }

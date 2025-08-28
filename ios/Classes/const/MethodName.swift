@@ -13,6 +13,7 @@ public class MethodName {
     
     public static let BLOCK_APPS = "blockApps"
     public static let BLOCK_WEB_DOMAINS = "blockWebDomains"
+    public static let BLOCK_APPS_AND_WEB_DOMAINS = "blockAppsAndWebDomains"
     
     public static let DISABLE_APPS_BLOCKING = "disableAppsBlocking"
     public static let DISABLE_WEB_DOMAINS_BLOCKING = "disableWebDomainsBlocking"

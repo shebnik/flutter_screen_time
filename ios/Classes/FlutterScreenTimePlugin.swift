@@ -84,6 +84,17 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
                 return
             }
             methods.setWebContentBlocking(adultWebsitesBlocked: adultWebsitesBlocked, blockedDomains: blockedDomains, result: result)
+        case MethodName.BLOCK_APPS_AND_WEB_DOMAINS:
+            guard let arguments = call.arguments as? [String: Any] else {
+                result(
+                    FlutterError(
+                        code: "INVALID_ARGUMENTS",
+                        message: "Invalid arguments provided to \(MethodName.BLOCK_APPS_AND_WEB_DOMAINS)",
+                        details: nil
+                    ))
+                return
+            }
+            methods.blockAppsAndWebDomains(arguments: arguments, result: result)
         case MethodName.DISABLE_APPS_BLOCKING:
             methods.disableAppsBlocking(result: result)
         case MethodName.DISABLE_WEB_DOMAINS_BLOCKING:
@@ -135,6 +146,4 @@ public class FlutterScreenTimePlugin: NSObject, FlutterPlugin {
             result(FlutterMethodNotImplemented)
         }
     }
-    
-    
 }
