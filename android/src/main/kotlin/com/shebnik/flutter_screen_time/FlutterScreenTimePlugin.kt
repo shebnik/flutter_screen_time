@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.util.Log
 import android.content.pm.PackageManager
+import com.shebnik.flutter_screen_time.const.AuthorizationStatus
 
 /** FlutterScreenTimePlugin */
 class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
@@ -198,6 +199,10 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             }
 
             MethodName.BLOCK_APPS_AND_WEB_DOMAINS -> {
+                if (!checkAuthorization(result)) {
+                    return
+                }
+
                 val args = call.arguments as Map<*, *>
                 val bundleIds = args[Argument.BUNDLE_IDS] as List<*>?
                 val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
@@ -297,5 +302,65 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+    }
+
+    private fun checkAuthorization(result: Result): Boolean {
+        val notifications = FlutterScreenTimeMethod.authorizationStatus(
+            context,
+            PermissionType.NOTIFICATION,
+            false
+        )
+        if (notifications != AuthorizationStatus.APPROVED) {
+            result.error(
+                "unauthorized",
+                "Notification permission is required to block apps and web domains. Current status: ${notifications.name.toCamelCase()}",
+                null
+            )
+            return false
+        }
+
+        val appUsageStatus = FlutterScreenTimeMethod.authorizationStatus(
+            context,
+            PermissionType.APP_USAGE,
+            false
+        )
+        if (appUsageStatus != AuthorizationStatus.APPROVED) {
+            result.error(
+                "unauthorized",
+                "App Usage access is required to block apps and web domains. Current status: ${appUsageStatus.name.toCamelCase()}",
+                null
+            )
+            return false
+        }
+
+        val overlayStatus = FlutterScreenTimeMethod.authorizationStatus(
+            context,
+            PermissionType.DRAW_OVERLAY,
+            false
+        )
+        if (overlayStatus != AuthorizationStatus.APPROVED) {
+            result.error(
+                "unauthorized",
+                "Draw Overlay permission is required to block apps and web domains. Current status: ${overlayStatus.name.toCamelCase()}",
+                null
+            )
+            return false
+        }
+
+        val accessibilityStatus = FlutterScreenTimeMethod.authorizationStatus(
+            context,
+            PermissionType.ACCESSIBILITY_SETTINGS,
+            false
+        )
+        if (accessibilityStatus != AuthorizationStatus.APPROVED) {
+            result.error(
+                "unauthorized",
+                "Accessibility Service permission is required to block apps and web domains. Current status: ${accessibilityStatus.name.toCamelCase()}",
+                null
+            )
+            return false
+        }
+
+        return true
     }
 }
