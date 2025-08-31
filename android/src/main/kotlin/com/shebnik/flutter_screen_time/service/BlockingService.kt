@@ -45,6 +45,8 @@ class BlockingService : AccessibilityService() {
     private var monitoringRunnable: Runnable? = null
     private var lastBlockTime = 0L
     private val blockCooldownMs = 2000L // Increased cooldown for navigation-based blocking
+    private var blockUninstalling: Boolean = false
+    private var appName: String? = null
 
     // Overlay properties
     private var layoutName: String = DEFAULT_LAYOUT_NAME
@@ -218,6 +220,15 @@ class BlockingService : AccessibilityService() {
             editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_NAME, intentValue)
         }
 
+        blockUninstalling = intent?.getBooleanExtra(Argument.BLOCK_UNINSTALLING, false)
+            ?: prefs.getBoolean(Argument.BLOCK_UNINSTALLING, false)
+        editor.putBoolean(Argument.BLOCK_UNINSTALLING, blockUninstalling)
+
+        appName = intent?.getStringExtra(Argument.APP_NAME) ?: prefs.getString(Argument.APP_NAME, null)
+        intent?.getStringExtra(Argument.APP_NAME)?.let { intentValue ->
+            editor.putString(Argument.APP_NAME, intentValue)
+        }
+
         editor.apply()
     }
 
@@ -228,11 +239,24 @@ class BlockingService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         if (!isServiceActive) return
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
+        if (blockUninstalling && appName != null) {
+            val eventPackageName = event.packageName?.toString() ?: return
+            if (eventPackageName.contains("packageinstaller") || eventPackageName.contains("permissioncontroller")) {
+                val textNodes = rootInActiveWindow.findAccessibilityNodeInfosByText(appName!!)
+                if (textNodes.isNotEmpty()) {
+                    showOverlay()
+                    if (useOverlayCountdown) {
+                        startBackButtonSequence()
+                    } else {
+                        performGlobalAction(GLOBAL_ACTION_BACK)
+                    }
+                }
+            }
+        }
 
-        val eventPackageName = event.packageName?.toString()
-        if (eventPackageName == callerPackageName) {
-            Log.d(TAG, "Skipping website blocking for caller package: $eventPackageName")
+        if (blockedDomains.isEmpty()) return
+        if (event.packageName?.toString() == callerPackageName) {
+            Log.d(TAG, "Skipping website blocking for caller package: ${event.packageName}")
             return
         }
 

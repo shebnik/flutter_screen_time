@@ -18,6 +18,8 @@ class Argument {
   static const String overlayCountdownSeconds = 'overlayCountdownSeconds';
   static const String blockOverlayLayoutPackage = 'blockOverlayLayoutPackage';
   static const String isOnlyWebsitesBlocking = 'isOnlyWebsitesBlocking';
+  static const String blockUninstalling = 'blockUninstalling';
+  static const String appName = 'appName';
 
   // iOS only
   static const String familyPickerConfiguration = 'familyPickerConfiguration';

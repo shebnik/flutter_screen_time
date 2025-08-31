@@ -468,6 +468,8 @@ object FlutterScreenTimeMethod {
         layoutName: String?,
         useOverlayCountdown: Boolean,
         overlayCountdownSeconds: Int,
+        blockUninstalling: Boolean,
+        appName: String?
     ): Boolean {
         val intent = Intent(context, BlockingService::class.java).apply {
             putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(bundleIds))
@@ -483,6 +485,8 @@ object FlutterScreenTimeMethod {
             putExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME, layoutName)
             putExtra(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
             putExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
+            putExtra(Argument.BLOCK_UNINSTALLING, blockUninstalling)
+            putExtra(Argument.APP_NAME, appName)
         }
 
         try {

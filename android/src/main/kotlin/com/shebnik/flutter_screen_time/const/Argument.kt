@@ -18,4 +18,6 @@ object Argument {
     const val BLOCK_WEBSITES_ONLY_IN_BROWSERS = "blockWebsitesOnlyInBrowsers"
     const val BLOCK_OVERLAY_LAYOUT_PACKAGE = "blockOverlayLayoutPackage"
     const val IS_ONLY_WEBSITES_BLOCKING = "isOnlyWebsitesBlocking"
+    const val BLOCK_UNINSTALLING = "blockUninstalling"
+    const val APP_NAME = "appName"
 }

@@ -221,6 +221,9 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val useOverlayCountdown = args[Argument.USE_OVERLAY_COUNTDOWN] as Boolean? ?: true
                 val overlayCountdownSeconds = args[Argument.OVERLAY_COUNTDOWN_SECONDS] as Int? ?: 10
 
+                val blockUninstalling = args[Argument.BLOCK_UNINSTALLING] as Boolean? ?: false
+                val appName = args[Argument.APP_NAME] as String?
+
                 val response = FlutterScreenTimeMethod.blockAppsAndWebdomains(
                     context,
                     bundleIds?.filterIsInstance<String>() ?: mutableListOf(),
@@ -230,7 +233,9 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     notificationIcon,
                     layoutName,
                     useOverlayCountdown,
-                    overlayCountdownSeconds
+                    overlayCountdownSeconds,
+                    blockUninstalling,
+                    appName
                 )
 
                 result.success(response)

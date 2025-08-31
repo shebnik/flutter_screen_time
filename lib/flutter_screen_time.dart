@@ -228,7 +228,13 @@ class FlutterScreenTime {
   /// seconds.
   ///
   /// [androidOverlayCountdownSeconds] The duration in seconds for the overlay
-  /// to be displayed, if [androidUseOverlayCountdown] is true,
+  /// to be displayed, if [androidUseOverlayCountdown] is true
+  ///
+  /// [androidBlockUninstalling] If true, blocks uninstalling of the current 
+  /// app.
+  /// 
+  /// [appName] The name of the current app, using to detect when 
+  /// [androidBlockUninstalling] is true.
   Future<bool> blockAppsAndWebDomains({
     FamilyActivitySelection? iOSSelection,
     List<String>? androidBundleIds,
@@ -240,6 +246,8 @@ class FlutterScreenTime {
     String? androidLayoutName,
     bool? androidUseOverlayCountdown,
     int? androidOverlayCountdownSeconds,
+    bool? androidBlockUninstalling,
+    String? appName,
   }) {
     return FlutterScreenTimePlatform.instance.blockAppsAndWebDomains(
       iOSSelection: iOSSelection,
@@ -252,6 +260,8 @@ class FlutterScreenTime {
       androidLayoutName: androidLayoutName,
       androidUseOverlayCountdown: androidUseOverlayCountdown,
       androidOverlayCountdownSeconds: androidOverlayCountdownSeconds,
+      androidBlockUninstalling: androidBlockUninstalling,
+      appName: appName,
     );
   }
 
