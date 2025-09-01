@@ -2,18 +2,19 @@ package com.shebnik.flutter_screen_time.service
 
 import android.app.Notification
 import android.content.Intent
+import android.net.VpnService
+import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.shebnik.flutter_screen_time.const.Argument
-import android.net.VpnService
 import com.shebnik.flutter_screen_time.util.NotificationUtil
 import com.shebnik.flutter_screen_time.util.NotificationUtil.startForegroundWithGroupedNotification
 import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
 class BlockingVpnService : VpnService() {
     companion object {
-        private const val TAG = "BlockingService"
-
+        private const val TAG = "BlockingVpnService"
         private val isRunning = AtomicBoolean(false)
 
         fun isRunning(): Boolean = isRunning.get()
@@ -21,6 +22,7 @@ class BlockingVpnService : VpnService() {
 
     private var primaryDns: String? = null
     private var secondaryDns: String? = null
+    private var vpnInterface: ParcelFileDescriptor? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -66,6 +68,20 @@ class BlockingVpnService : VpnService() {
         }
 
         try {
+            val builder = Builder()
+                .setSession("BlockingService")
+                .setMtu(1500)
+                .addAddress("10.0.0.2", 32)
+                .addDnsServer(primaryDns!!)
+                .addDnsServer(secondaryDns!!)
+
+            vpnInterface = builder.establish()
+            if (vpnInterface == null) {
+                Log.e(TAG, "Failed to establish VPN interface")
+                stopVpn()
+                return
+            }
+
             isRunning.set(true)
             Log.i(TAG, "VPN started successfully with DNS servers: $primaryDns, $secondaryDns")
         } catch (e: Exception) {
@@ -77,6 +93,13 @@ class BlockingVpnService : VpnService() {
     private fun stopVpn() {
         Log.i(TAG, "Stopping VPN")
         isRunning.set(false)
+
+        try {
+            vpnInterface?.close()
+        } catch (e: IOException) {
+            Log.e(TAG, "Error closing VPN interface", e)
+        }
+        vpnInterface = null
 
         // Stop foreground service and cleanup group summary
         stopForegroundWithCleanup()
@@ -91,9 +114,7 @@ class BlockingVpnService : VpnService() {
         Log.d(TAG, "VPN Service destroyed")
     }
 
-    private fun createVpnNotification(
-        customIconResId: Int?,
-    ): Notification {
+    private fun createVpnNotification(customIconResId: Int?): Notification {
         val notificationTitle = "Website Blocking Active"
         val notificationBody = "DNS: $primaryDns, $secondaryDns"
         return NotificationUtil.createVpnNotification(
