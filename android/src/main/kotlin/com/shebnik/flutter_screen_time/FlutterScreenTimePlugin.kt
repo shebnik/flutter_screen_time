@@ -199,10 +199,6 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             }
 
             MethodName.BLOCK_APPS_AND_WEB_DOMAINS -> {
-                if (!checkAuthorization(result)) {
-                    return
-                }
-
                 val args = call.arguments as Map<*, *>
                 val bundleIds = args[Argument.BUNDLE_IDS] as List<*>?
                 val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
@@ -224,6 +220,14 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val blockUninstalling = args[Argument.BLOCK_UNINSTALLING] as Boolean? ?: false
                 val appName = args[Argument.APP_NAME] as String?
 
+                val useDNSWebsiteBlocking = args[Argument.USE_DNS_WEBSITE_BLOCKING] as Boolean? ?: false
+                val primaryDNS = args[Argument.PRIMARY_DNS] as String?
+                val secondaryDNS = args[Argument.SECONDARY_DNS] as String?
+                
+                if (!checkAuthorization(result, useDNSWebsiteBlocking)) {
+                    return
+                }
+
                 val response = FlutterScreenTimeMethod.blockAppsAndWebdomains(
                     context,
                     bundleIds?.filterIsInstance<String>() ?: mutableListOf(),
@@ -235,7 +239,10 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     useOverlayCountdown,
                     overlayCountdownSeconds,
                     blockUninstalling,
-                    appName
+                    appName,
+                    useDNSWebsiteBlocking,
+                    primaryDNS,
+                    secondaryDNS
                 )
 
                 result.success(response)
@@ -256,6 +263,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             PermissionRequestCode.REQUEST_CODE_DRAW_OVERLAY -> PermissionType.DRAW_OVERLAY
             PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_WEBSITES_ONLY -> PermissionType.ACCESSIBILITY_SETTINGS
             PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_APPS_AND_WEBSITES -> PermissionType.ACCESSIBILITY_SETTINGS
+            PermissionRequestCode.REQUEST_CODE_VPN -> PermissionType.VPN
             else -> return false
         }
 
@@ -309,7 +317,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         channel.setMethodCallHandler(null)
     }
 
-    private fun checkAuthorization(result: Result): Boolean {
+    private fun checkAuthorization(result: Result, useDNSWebsiteBlocking: Boolean): Boolean {
         val notifications = FlutterScreenTimeMethod.authorizationStatus(
             context,
             PermissionType.NOTIFICATION,
@@ -364,6 +372,22 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 null
             )
             return false
+        }
+
+        if (useDNSWebsiteBlocking) {
+            val dnsStatus = FlutterScreenTimeMethod.authorizationStatus(
+                context,
+                PermissionType.VPN,
+                false
+            )
+            if (dnsStatus != AuthorizationStatus.APPROVED) {
+                result.error(
+                    "unauthorized",
+                    "VPN permission is required to use DNS-based website blocking. Current status: ${dnsStatus.name.toCamelCase()}",
+                    null
+                )
+                return false
+            }
         }
 
         return true

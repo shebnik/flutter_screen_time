@@ -3,4 +3,5 @@ enum AndroidPermissionType {
   drawOverlay,
   notification,
   accessibilitySettings,
+  vpn,
 }

@@ -5,4 +5,5 @@ enum class PermissionType {
     DRAW_OVERLAY,
     NOTIFICATION,
     ACCESSIBILITY_SETTINGS,
+    VPN
 }

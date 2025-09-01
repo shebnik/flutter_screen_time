@@ -20,4 +20,11 @@ object Argument {
     const val IS_ONLY_WEBSITES_BLOCKING = "isOnlyWebsitesBlocking"
     const val BLOCK_UNINSTALLING = "blockUninstalling"
     const val APP_NAME = "appName"
+    const val USE_DNS_WEBSITE_BLOCKING = "useDNSWebsiteBlocking"
+    const val PRIMARY_DNS = "primaryDNS"
+    const val SECONDARY_DNS = "secondaryDNS"
+
+    const val ACTION = "action"
+    const val START_ACTION = "start"
+    const val STOP_ACTION = "stop"
 }

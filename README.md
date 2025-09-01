@@ -32,4 +32,15 @@ Or
         android:name="android.accessibilityservice"
         android:resource="@xml/accessibility_service_config" />
 </service>
+
+<!-- If using VPN blocking -->
+<service
+    android:name="com.shebnik.flutter_screen_time.service.BlockingVpnService"
+    android:permission="android.permission.BIND_VPN_SERVICE"
+    android:enabled="true"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.net.VpnService" />
+    </intent-filter>
+</service>
 ```

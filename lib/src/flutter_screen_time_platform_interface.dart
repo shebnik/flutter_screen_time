@@ -120,6 +120,9 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
     int? androidOverlayCountdownSeconds,
     bool? androidBlockUninstalling,
     String? appName,
+    bool? androidUseDNSWebsiteBlocking,
+    String? androidPrimaryDNS,
+    String? androidSecondaryDNS,
   }) => throw UnimplementedError(
     'blockAppsAndWebDomains() has not been implemented.',
   );

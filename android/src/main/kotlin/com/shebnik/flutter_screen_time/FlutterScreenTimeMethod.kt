@@ -32,6 +32,8 @@ import com.shebnik.flutter_screen_time.service.BlockingService
 import com.shebnik.flutter_screen_time.service.WebsitesBlockingAccessibilityService
 import com.shebnik.flutter_screen_time.util.ApplicationInfoUtil
 import java.io.ByteArrayOutputStream
+import android.net.VpnService
+import com.shebnik.flutter_screen_time.service.BlockingVpnService
 
 
 object FlutterScreenTimeMethod {
@@ -118,6 +120,15 @@ object FlutterScreenTimeMethod {
                 }
                 return AuthorizationStatus.DENIED
             }
+
+            PermissionType.VPN -> {
+                val intent = VpnService.prepare(context)
+                return if (intent == null) {
+                    AuthorizationStatus.APPROVED
+                } else {
+                    AuthorizationStatus.NOT_DETERMINED // Permission not yet granted
+                }
+            }
         }
     }
 
@@ -199,6 +210,25 @@ object FlutterScreenTimeMethod {
                     e.localizedMessage?.let {
                         Log.e(
                             "requestPermission ACCESSIBILITY_SETTINGS", it
+                        )
+                    }
+                    false
+                }
+            }
+
+            PermissionType.VPN -> {
+                try {
+                    val intent = VpnService.prepare(activity)
+                        ?: return true // Already has permission
+                    activity.startActivityForResult(
+                        intent,
+                        PermissionRequestCode.REQUEST_CODE_VPN
+                    )
+                    true
+                } catch (e: Exception) {
+                    e.localizedMessage?.let {
+                        Log.e(
+                            "requestPermission VPN", it
                         )
                     }
                     false
@@ -469,7 +499,10 @@ object FlutterScreenTimeMethod {
         useOverlayCountdown: Boolean,
         overlayCountdownSeconds: Int,
         blockUninstalling: Boolean,
-        appName: String?
+        appName: String?,
+        useDNSWebsiteBlocking: Boolean,
+        primaryDNS: String?,
+        secondaryDNS: String?
     ): Boolean {
         val intent = Intent(context, BlockingService::class.java).apply {
             putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(bundleIds))
@@ -485,8 +518,13 @@ object FlutterScreenTimeMethod {
             putExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME, layoutName)
             putExtra(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
             putExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
+
             putExtra(Argument.BLOCK_UNINSTALLING, blockUninstalling)
             putExtra(Argument.APP_NAME, appName)
+
+            putExtra(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
+            putExtra(Argument.PRIMARY_DNS, primaryDNS)
+            putExtra(Argument.SECONDARY_DNS, secondaryDNS)
         }
 
         try {
@@ -496,6 +534,28 @@ object FlutterScreenTimeMethod {
             return false
         }
         Log.d(TAG, "Apps and Domain blocking started successfully")
+
+        if (useDNSWebsiteBlocking) {
+            Log.d(TAG, "Starting VPN for DNS website blocking")
+            if (!BlockingVpnService.isRunning()) {
+                Log.d(TAG, "VPN not running, starting VPN service")
+                val intent = Intent(context, BlockingVpnService::class.java).apply {
+                    putExtra(Argument.PRIMARY_DNS, primaryDNS)
+                    putExtra(Argument.SECONDARY_DNS, secondaryDNS)
+                    putExtra(Argument.ACTION, Argument.START_ACTION)
+                    putExtra(Argument.NOTIFICATION_ICON, notificationIcon)
+                }
+                try {
+                    context.startForegroundService(intent)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error starting VPN service", e)
+                    return false
+                }
+            } else {
+                Log.d(TAG, "VPN already running")
+            }
+        }
+
         return true
     }
 

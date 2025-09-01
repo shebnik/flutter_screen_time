@@ -22,6 +22,7 @@ import android.widget.TextView
 import com.shebnik.flutter_screen_time.const.Argument
 import com.shebnik.flutter_screen_time.receiver.StopBlockingReceiver
 import com.shebnik.flutter_screen_time.util.NotificationUtil
+import com.shebnik.flutter_screen_time.util.NotificationUtil.startForegroundWithGroupedNotification
 import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
 
 class BlockingService : AccessibilityService() {
@@ -43,8 +44,6 @@ class BlockingService : AccessibilityService() {
     private var isMonitoring = false
     private val handler = Handler(Looper.getMainLooper())
     private var monitoringRunnable: Runnable? = null
-    private var lastBlockTime = 0L
-    private val blockCooldownMs = 2000L // Increased cooldown for navigation-based blocking
     private var blockUninstalling: Boolean = false
     private var appName: String? = null
 
@@ -59,6 +58,9 @@ class BlockingService : AccessibilityService() {
     private var backPressRunnable: Runnable? = null
     private var currentCountdown = 0
     private var backPressCount = 0
+
+    // DNS blocking
+    private var useDNSWebsiteBlocking: Boolean = false
 
     private lateinit var stopBlockingReceiver: StopBlockingReceiver
 
@@ -113,9 +115,12 @@ class BlockingService : AccessibilityService() {
             body = notificationBody,
             customIconResId = customIconResId,
             blockedAppsCount = blockedApps.size,
-            blockedDomainsCount = blockedDomains.size
+            blockedDomainsCount = blockedDomains.size,
         )
-        startForeground(NotificationUtil.BLOCKING_NOTIFICATION_ID, notification)
+        startForegroundWithGroupedNotification(
+            NotificationUtil.BLOCKING_NOTIFICATION_ID,
+            notification
+        )
 
         startAppMonitoring()
         Log.d(
@@ -224,9 +229,25 @@ class BlockingService : AccessibilityService() {
             ?: prefs.getBoolean(Argument.BLOCK_UNINSTALLING, false)
         editor.putBoolean(Argument.BLOCK_UNINSTALLING, blockUninstalling)
 
-        appName = intent?.getStringExtra(Argument.APP_NAME) ?: prefs.getString(Argument.APP_NAME, null)
+        appName =
+            intent?.getStringExtra(Argument.APP_NAME) ?: prefs.getString(Argument.APP_NAME, null)
         intent?.getStringExtra(Argument.APP_NAME)?.let { intentValue ->
             editor.putString(Argument.APP_NAME, intentValue)
+        }
+
+        useDNSWebsiteBlocking = intent?.getBooleanExtra(Argument.USE_DNS_WEBSITE_BLOCKING, false)
+            ?: prefs.getBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, false)
+        editor.putBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
+
+        if (useDNSWebsiteBlocking) {
+            val primaryDNS = intent?.getStringExtra(Argument.PRIMARY_DNS)
+                ?: prefs.getString(Argument.PRIMARY_DNS, null)
+            editor.putString(Argument.PRIMARY_DNS, primaryDNS)
+            val secondaryDNS = intent?.getStringExtra(Argument.SECONDARY_DNS) ?: prefs.getString(
+                Argument.SECONDARY_DNS,
+                null
+            )
+            editor.putString(Argument.SECONDARY_DNS, secondaryDNS)
         }
 
         editor.apply()
@@ -254,7 +275,7 @@ class BlockingService : AccessibilityService() {
             }
         }
 
-        if (blockedDomains.isEmpty()) return
+        if (blockedDomains.isEmpty() || useDNSWebsiteBlocking) return
         if (event.packageName?.toString() == callerPackageName) {
             Log.d(TAG, "Skipping website blocking for caller package: ${event.packageName}")
             return
@@ -548,32 +569,6 @@ class BlockingService : AccessibilityService() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error launching caller app", e)
-        }
-    }
-
-    private fun performBackAction() {
-        try {
-            val currentTime = System.currentTimeMillis()
-
-            if (currentTime - lastBlockTime < blockCooldownMs) {
-                Log.d(TAG, "Back action blocked due to cooldown")
-                return
-            }
-
-            lastBlockTime = currentTime
-
-            val success = performGlobalAction(GLOBAL_ACTION_BACK)
-
-            if (success) {
-                Log.d(TAG, "Back action performed successfully")
-            } else {
-                Log.w(TAG, "Back action failed")
-                handler.postDelayed({
-                    performGlobalAction(GLOBAL_ACTION_BACK)
-                }, 500)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error performing back action", e)
         }
     }
 

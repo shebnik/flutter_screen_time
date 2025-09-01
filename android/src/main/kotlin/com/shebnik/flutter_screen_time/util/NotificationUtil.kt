@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.app.Service.STOP_FOREGROUND_REMOVE
 import android.content.Context
@@ -19,6 +20,7 @@ object NotificationUtil {
     const val BLOCK_APPS_NOTIFICATION_ID = 1001
     const val WEBSITES_BLOCKING_NOTIFICATION_ID = 1002
     const val BLOCKING_NOTIFICATION_ID = 1003
+    const val VPN_NOTIFICATION_ID = 1004
 
     private const val TAG = "NotificationUtils"
 
@@ -106,11 +108,13 @@ object NotificationUtil {
         body: String?,
         customIconResId: Int?,
         blockedAppsCount: Int,
-        blockedDomainsCount: Int
+        blockedDomainsCount: Int,
     ): Notification {
         val notificationTitle = title ?: "Blocking Active"
-        val notificationBody = body ?: "Monitoring $blockedAppsCount apps and $blockedDomainsCount domains"
+        val notificationBody =
+            body ?: "Monitoring $blockedAppsCount apps and $blockedDomainsCount domains"
         val iconResId = customIconResId ?: android.R.drawable.ic_lock_idle_lock
+        updateGroupSummary(context, iconResId)
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(notificationTitle)
@@ -118,6 +122,29 @@ object NotificationUtil {
             .setSmallIcon(iconResId)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
+            .setGroup(GROUP_KEY)
+            .build()
+    }
+
+    /**
+     * Creates a notification for the VPN Service
+     */
+    fun createVpnNotification(
+        context: Context,
+        title: String,
+        body: String,
+        customIconResId: Int?,
+    ): Notification {
+        val iconResId = customIconResId ?: android.R.drawable.ic_lock_idle_lock
+        updateGroupSummary(context, iconResId)
+
+        return NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setSmallIcon(iconResId)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setGroup(GROUP_KEY)
             .build()
     }
 
