@@ -50,7 +50,7 @@ class FlutterScreenTime {
   /// Returns true if permission is granted, false otherwise.
   ///
   /// [isOnlyWebsitesBlocking] specifies for which Accessibility Service the
-  /// permission is requested. Provide true if will use [blockWebDomains], 
+  /// permission is requested. Provide true if will use [blockWebDomains],
   /// otherwise provide false if will use [blockAppsAndWebDomains].
   ///
   /// Returns the current [AuthorizationStatus].
@@ -220,7 +220,7 @@ class FlutterScreenTime {
   /// [androidNotificationBody] Custom body for the android notification.
   ///
   /// [androidNotificationIcon] Custom icon for the android notification.
-  /// 
+  ///
   /// [androidLayoutName] Custom layout for android blocking overlay.
   ///
   /// [androidUseOverlayCountdown] If true, closes web domain and app where it
@@ -230,17 +230,14 @@ class FlutterScreenTime {
   /// [androidOverlayCountdownSeconds] The duration in seconds for the overlay
   /// to be displayed, if [androidUseOverlayCountdown] is true
   ///
-  /// [androidBlockUninstalling] If true, blocks uninstalling of the current 
+  /// [androidBlockUninstalling] If true, blocks uninstalling of the current
   /// app.
-  /// 
-  /// [appName] The name of the current app, using to detect when 
+  ///
+  /// [appName] The name of the current app, using to detect when
   /// [androidBlockUninstalling] is true.
   ///
-  /// [androidUseDNSWebsiteBlocking] If true, enables DNS-based website blocking.
-  ///
-  /// [androidPrimaryDNS] The primary DNS server to use for blocking.
-  ///
-  /// [androidSecondaryDNS] The secondary DNS server to use for blocking.
+  /// [androidUseDnsWebsiteBlocking] If true, enables DNS-based website
+  /// blocking.
   Future<bool> blockAppsAndWebDomains({
     FamilyActivitySelection? iOSSelection,
     List<String>? androidBundleIds,
@@ -254,9 +251,7 @@ class FlutterScreenTime {
     int? androidOverlayCountdownSeconds,
     bool? androidBlockUninstalling,
     String? appName,
-    bool? androidUseDNSWebsiteBlocking,
-    String? androidPrimaryDNS,
-    String? androidSecondaryDNS,
+    bool? androidUseDnsWebsiteBlocking,
   }) {
     return FlutterScreenTimePlatform.instance.blockAppsAndWebDomains(
       iOSSelection: iOSSelection,
@@ -271,9 +266,7 @@ class FlutterScreenTime {
       androidOverlayCountdownSeconds: androidOverlayCountdownSeconds,
       androidBlockUninstalling: androidBlockUninstalling,
       appName: appName,
-      androidUseDNSWebsiteBlocking: androidUseDNSWebsiteBlocking,
-      androidPrimaryDNS: androidPrimaryDNS,
-      androidSecondaryDNS: androidSecondaryDNS,
+      androidUseDnsWebsiteBlocking: androidUseDnsWebsiteBlocking,
     );
   }
 

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.shebnik.flutter_screen_time.const.Argument
 import com.shebnik.flutter_screen_time.service.BlockingService
+import com.shebnik.flutter_screen_time.service.BlockingVpnService
 
 class StopBlockingReceiver(private val service: BlockingService) :
     BroadcastReceiver() {

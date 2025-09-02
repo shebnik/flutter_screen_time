@@ -204,7 +204,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
                 if (bundleIds.isNullOrEmpty() && domains.isNullOrEmpty()) {
                     Log.w(TAG, "No bundleIds or domains provided to block.")
-                    result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebdomains(context))
+                    result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebDomains(context))
                     return
                 }
 
@@ -220,15 +220,14 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val blockUninstalling = args[Argument.BLOCK_UNINSTALLING] as Boolean? ?: false
                 val appName = args[Argument.APP_NAME] as String?
 
-                val useDNSWebsiteBlocking = args[Argument.USE_DNS_WEBSITE_BLOCKING] as Boolean? ?: false
-                val primaryDNS = args[Argument.PRIMARY_DNS] as String?
-                val secondaryDNS = args[Argument.SECONDARY_DNS] as String?
-                
+                val useDNSWebsiteBlocking =
+                    args[Argument.USE_DNS_WEBSITE_BLOCKING] as Boolean? ?: false
+
                 if (!checkAuthorization(result, useDNSWebsiteBlocking)) {
                     return
                 }
 
-                val response = FlutterScreenTimeMethod.blockAppsAndWebdomains(
+                val response = FlutterScreenTimeMethod.blockAppsAndWebDomains(
                     context,
                     bundleIds?.filterIsInstance<String>() ?: mutableListOf(),
                     domains?.filterIsInstance<String>() ?: mutableListOf(),
@@ -241,8 +240,6 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     blockUninstalling,
                     appName,
                     useDNSWebsiteBlocking,
-                    primaryDNS,
-                    secondaryDNS
                 )
 
                 result.success(response)
@@ -250,7 +247,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
 
             MethodName.DISABLE_APPS_AND_WEB_DOMAINS_BLOCKING -> {
-                result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebdomains(context))
+                result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebDomains(context))
             }
 
             else -> result.notImplemented()

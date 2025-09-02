@@ -488,7 +488,7 @@ object FlutterScreenTimeMethod {
         }
     }
 
-    fun blockAppsAndWebdomains(
+    fun blockAppsAndWebDomains(
         context: Context,
         bundleIds: List<String>,
         domains: List<String>,
@@ -501,8 +501,6 @@ object FlutterScreenTimeMethod {
         blockUninstalling: Boolean,
         appName: String?,
         useDNSWebsiteBlocking: Boolean,
-        primaryDNS: String?,
-        secondaryDNS: String?
     ): Boolean {
         val intent = Intent(context, BlockingService::class.java).apply {
             putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(bundleIds))
@@ -523,8 +521,6 @@ object FlutterScreenTimeMethod {
             putExtra(Argument.APP_NAME, appName)
 
             putExtra(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
-            putExtra(Argument.PRIMARY_DNS, primaryDNS)
-            putExtra(Argument.SECONDARY_DNS, secondaryDNS)
         }
 
         try {
@@ -538,10 +534,13 @@ object FlutterScreenTimeMethod {
         if (useDNSWebsiteBlocking) {
             Log.d(TAG, "Starting VPN for DNS website blocking")
             if (!BlockingVpnService.isRunning()) {
+                if (domains.isEmpty()) {
+                    Log.d(TAG, "No domains to block, skipping VPN start")
+                    return true
+                }
                 Log.d(TAG, "VPN not running, starting VPN service")
                 val intent = Intent(context, BlockingVpnService::class.java).apply {
-                    putExtra(Argument.PRIMARY_DNS, primaryDNS)
-                    putExtra(Argument.SECONDARY_DNS, secondaryDNS)
+                    putStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS, ArrayList(domains))
                     putExtra(Argument.ACTION, Argument.START_ACTION)
                     putExtra(Argument.NOTIFICATION_ICON, notificationIcon)
                 }
@@ -553,6 +552,10 @@ object FlutterScreenTimeMethod {
                 }
             } else {
                 Log.d(TAG, "VPN already running")
+                if (domains.isEmpty()) {
+                    Log.d(TAG, "No domains to block, stopping VPN service")
+                    return stopBlockingDomains(context)
+                }
             }
         }
 
@@ -560,7 +563,7 @@ object FlutterScreenTimeMethod {
     }
 
 
-    fun stopBlockingAppsAndWebdomains(context: Context): Boolean {
+    fun stopBlockingAppsAndWebDomains(context: Context): Boolean {
         return try {
             val intent = Intent(BlockingService.ACTION_STOP_BLOCKING)
             context.sendBroadcast(intent)

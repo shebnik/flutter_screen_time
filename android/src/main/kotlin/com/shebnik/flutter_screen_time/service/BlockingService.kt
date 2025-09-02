@@ -239,17 +239,6 @@ class BlockingService : AccessibilityService() {
             ?: prefs.getBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, false)
         editor.putBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
 
-        if (useDNSWebsiteBlocking) {
-            val primaryDNS = intent?.getStringExtra(Argument.PRIMARY_DNS)
-                ?: prefs.getString(Argument.PRIMARY_DNS, null)
-            editor.putString(Argument.PRIMARY_DNS, primaryDNS)
-            val secondaryDNS = intent?.getStringExtra(Argument.SECONDARY_DNS) ?: prefs.getString(
-                Argument.SECONDARY_DNS,
-                null
-            )
-            editor.putString(Argument.SECONDARY_DNS, secondaryDNS)
-        }
-
         editor.apply()
     }
 
@@ -626,7 +615,6 @@ class BlockingService : AccessibilityService() {
     private fun getDefaultNotificationBody(): String {
         return when {
             blockedApps.isNotEmpty() && blockedDomains.isNotEmpty() -> "Monitoring ${blockedApps.size} apps and ${blockedDomains.size} websites"
-
             blockedApps.isNotEmpty() -> "Monitoring ${blockedApps.size} apps"
             blockedDomains.isNotEmpty() -> "Monitoring ${blockedDomains.size} websites"
             else -> "Blocker is not running"

@@ -20,9 +20,7 @@ class Argument {
   static const String isOnlyWebsitesBlocking = 'isOnlyWebsitesBlocking';
   static const String blockUninstalling = 'blockUninstalling';
   static const String appName = 'appName';
-  static const String useDNSWebsiteBlocking = 'useDNSWebsiteBlocking';
-  static const String primaryDNS = 'primaryDNS';
-  static const String secondaryDNS = 'secondaryDNS';
+  static const String useDnsWebsiteBlocking = 'useDnsWebsiteBlocking';
 
   // iOS only
   static const String familyPickerConfiguration = 'familyPickerConfiguration';

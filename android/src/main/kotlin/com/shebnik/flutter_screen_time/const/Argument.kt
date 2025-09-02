@@ -5,6 +5,8 @@ object Argument {
 
     const val BLOCKED_WEB_DOMAINS = "blockedWebDomains"
 
+    const val IS_ADULT_WEBSITES_BLOCKED = "isAdultWebsitesBlocked"
+
     // Android only
     const val BUNDLE_IDS = "bundleIds"
     const val IGNORE_SYSTEM_APPS = "ignoreSystemApps"
@@ -20,9 +22,7 @@ object Argument {
     const val IS_ONLY_WEBSITES_BLOCKING = "isOnlyWebsitesBlocking"
     const val BLOCK_UNINSTALLING = "blockUninstalling"
     const val APP_NAME = "appName"
-    const val USE_DNS_WEBSITE_BLOCKING = "useDNSWebsiteBlocking"
-    const val PRIMARY_DNS = "primaryDNS"
-    const val SECONDARY_DNS = "secondaryDNS"
+    const val USE_DNS_WEBSITE_BLOCKING = "useDnsWebsiteBlocking"
 
     const val ACTION = "action"
     const val START_ACTION = "start"
