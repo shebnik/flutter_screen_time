@@ -71,9 +71,13 @@ class BlockingVpnService : VpnService() {
             val builder = Builder()
                 .setSession("BlockingService")
                 .setMtu(1500)
-                .addAddress("10.0.0.2", 32)
-                .addDnsServer(primaryDns!!)
-                .addDnsServer(secondaryDns!!)
+                .addAddress("10.0.0.2", 32);
+            if (primaryDns != null) {
+                builder.addDnsServer(primaryDns!!)
+            }
+            if (secondaryDns != null) {
+                builder.addDnsServer(secondaryDns!!)
+            }
 
             vpnInterface = builder.establish()
             if (vpnInterface == null) {
