@@ -21,6 +21,7 @@ class Argument {
   static const String blockUninstalling = 'blockUninstalling';
   static const String appName = 'appName';
   static const String useDnsWebsiteBlocking = 'useDnsWebsiteBlocking';
+  static const String forwardDnsServer = 'forwardDnsServer';
 
   // iOS only
   static const String familyPickerConfiguration = 'familyPickerConfiguration';

@@ -18,6 +18,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.*
 
 class BlockingVpnService : VpnService() {
+
+    private var forwardDnsServer: String? = null
+
     companion object {
         private const val TAG = "BlockingVpnService"
         private val isRunning = AtomicBoolean(false)
@@ -26,7 +29,7 @@ class BlockingVpnService : VpnService() {
         // VPN Configuration
         private const val VPN_ADDRESS = "10.0.0.2"
         private const val VPN_DNS_ADDRESS = "10.0.0.1" // Our local DNS server address
-        private const val REAL_DNS_SERVER = "8.8.8.8" // Real DNS server to forward to
+        private const val DEFAULT_FORWARD_DNS_SERVER = "8.8.8.8" // Real DNS server to forward to
     }
 
     private var blockedDomains: Set<String> = emptySet()
@@ -56,11 +59,13 @@ class BlockingVpnService : VpnService() {
                     intent?.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: emptyList()
                 this.blockedDomains = blockedDomainsArray.toSet()
                 Log.d(
-                    TAG,
-                    "Loaded ${this.blockedDomains.size} blocked domains: ${
+                    TAG, "Loaded ${this.blockedDomains.size} blocked domains: ${
                         this.blockedDomains.joinToString(", ")
                     }"
                 )
+
+                forwardDnsServer = intent?.getStringExtra(Argument.FORWARD_DNS_SERVER)
+                Log.d(TAG, "Using forward DNS server: $forwardDnsServer")
 
                 val iconName = intent?.getStringExtra(Argument.NOTIFICATION_ICON)
                 val customIconResId = iconName?.let {
@@ -68,8 +73,7 @@ class BlockingVpnService : VpnService() {
                 }
                 val notification = createVpnNotification(customIconResId)
                 startForegroundWithGroupedNotification(
-                    NotificationUtil.VPN_NOTIFICATION_ID,
-                    notification
+                    NotificationUtil.VPN_NOTIFICATION_ID, notification
                 )
                 startVpn()
             }
@@ -84,7 +88,9 @@ class BlockingVpnService : VpnService() {
 
     private fun createVpnNotification(customIconResId: Int?): Notification {
         val notificationTitle = "Website Blocking Active"
-        val notificationBody = "Blocking ${blockedDomains.size} domains"
+        val notificationBody = "Forwarding DNS to ${
+            forwardDnsServer ?: DEFAULT_FORWARD_DNS_SERVER
+        }"
         return NotificationUtil.createVpnNotification(
             this,
             notificationTitle,
@@ -100,7 +106,7 @@ class BlockingVpnService : VpnService() {
                 return
             }
 
-            val builder = Builder()
+           val builder = Builder()
                 .setMtu(1500)
                 .addAddress(VPN_ADDRESS, 32)
                 // Set our VPN as the DNS server so all DNS queries come to us
@@ -267,13 +273,13 @@ class BlockingVpnService : VpnService() {
                 val ipHeaderLength = (originalPacket.get(0).toInt() and 0x0F) * 4
                 val udpHeaderOffset = ipHeaderLength
                 val dnsOffset = ipHeaderLength + 8
-                
+
                 // Extract DNS query data
                 val dnsDataLength = originalPacket.limit() - dnsOffset
                 val dnsData = ByteArray(dnsDataLength)
                 originalPacket.position(dnsOffset)
                 originalPacket.get(dnsData)
-                
+
                 // Extract source port for response
                 val sourcePort = ((originalPacket.get(udpHeaderOffset).toInt() and 0xFF) shl 8) or
                                (originalPacket.get(udpHeaderOffset + 1).toInt() and 0xFF)
@@ -281,19 +287,19 @@ class BlockingVpnService : VpnService() {
                 // Send query to real DNS server
                 val socket = DatagramSocket()
                 val query = DatagramPacket(
-                    dnsData, 
-                    dnsData.size, 
-                    InetAddress.getByName(REAL_DNS_SERVER), 
+                    dnsData,
+                    dnsData.size,
+                    InetAddress.getByName(forwardDnsServer ?: DEFAULT_FORWARD_DNS_SERVER),
                     53
                 )
                 socket.send(query)
-                
+
                 // Receive response
                 val responseBuffer = ByteArray(512)
                 val response = DatagramPacket(responseBuffer, responseBuffer.size)
                 socket.receive(response)
                 socket.close()
-                
+
                 // Create IP+UDP response packet
                 val responsePacket = createDnsResponsePacket(
                     originalPacket, 
@@ -301,9 +307,9 @@ class BlockingVpnService : VpnService() {
                     response.length,
                     sourcePort
                 )
-                
+
                 vpnOutput.write(responsePacket)
-                
+
             } catch (e: Exception) {
                 Log.e(TAG, "Error forwarding DNS query", e)
             }
@@ -311,19 +317,19 @@ class BlockingVpnService : VpnService() {
     }
 
     private fun createDnsResponsePacket(
-        originalPacket: ByteBuffer, 
-        dnsResponse: ByteArray, 
+        originalPacket: ByteBuffer,
+        dnsResponse: ByteArray,
         dnsResponseLength: Int,
         originalSourcePort: Int
     ): ByteArray {
         val ipHeaderLength = (originalPacket.get(0).toInt() and 0x0F) * 4
         val totalLength = ipHeaderLength + 8 + dnsResponseLength // IP + UDP + DNS
         val responsePacket = ByteArray(totalLength)
-        
+
         // Copy and modify IP header
         originalPacket.position(0)
         originalPacket.get(responsePacket, 0, ipHeaderLength)
-        
+
         // Swap source and destination addresses
         val srcAddr = ByteArray(4)
         val dstAddr = ByteArray(4)
@@ -331,34 +337,34 @@ class BlockingVpnService : VpnService() {
         System.arraycopy(responsePacket, 16, dstAddr, 0, 4)
         System.arraycopy(dstAddr, 0, responsePacket, 12, 4)
         System.arraycopy(srcAddr, 0, responsePacket, 16, 4)
-        
+
         // Update total length
         responsePacket[2] = (totalLength shr 8).toByte()
         responsePacket[3] = totalLength.toByte()
-        
+
         // Recalculate IP checksum
         responsePacket[10] = 0
         responsePacket[11] = 0
         val ipChecksum = calculateChecksum(responsePacket, 0, ipHeaderLength)
         responsePacket[10] = (ipChecksum shr 8).toByte()
         responsePacket[11] = ipChecksum.toByte()
-        
+
         // Create UDP header
         val udpOffset = ipHeaderLength
         responsePacket[udpOffset] = (53 shr 8).toByte()     // Source port (DNS)
         responsePacket[udpOffset + 1] = 53.toByte()
         responsePacket[udpOffset + 2] = (originalSourcePort shr 8).toByte() // Dest port
         responsePacket[udpOffset + 3] = originalSourcePort.toByte()
-        
+
         val udpLength = 8 + dnsResponseLength
         responsePacket[udpOffset + 4] = (udpLength shr 8).toByte()
         responsePacket[udpOffset + 5] = udpLength.toByte()
         responsePacket[udpOffset + 6] = 0 // Checksum (optional for UDP)
         responsePacket[udpOffset + 7] = 0
-        
+
         // Copy DNS response
         System.arraycopy(dnsResponse, 0, responsePacket, ipHeaderLength + 8, dnsResponseLength)
-        
+
         return responsePacket
     }
 

@@ -222,6 +222,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
                 val useDNSWebsiteBlocking =
                     args[Argument.USE_DNS_WEBSITE_BLOCKING] as Boolean? ?: false
+                val forwardDnsServer = args[Argument.FORWARD_DNS_SERVER] as String?
 
                 if (!checkAuthorization(result, useDNSWebsiteBlocking)) {
                     return
@@ -240,6 +241,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     blockUninstalling,
                     appName,
                     useDNSWebsiteBlocking,
+                    forwardDnsServer
                 )
 
                 result.success(response)

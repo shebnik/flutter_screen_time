@@ -501,6 +501,7 @@ object FlutterScreenTimeMethod {
         blockUninstalling: Boolean,
         appName: String?,
         useDNSWebsiteBlocking: Boolean,
+        forwardDnsServer: String?,
     ): Boolean {
         val intent = Intent(context, BlockingService::class.java).apply {
             putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(bundleIds))
@@ -521,6 +522,7 @@ object FlutterScreenTimeMethod {
             putExtra(Argument.APP_NAME, appName)
 
             putExtra(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
+            putExtra(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
         }
 
         try {
@@ -541,6 +543,7 @@ object FlutterScreenTimeMethod {
                 Log.d(TAG, "VPN not running, starting VPN service")
                 val intent = Intent(context, BlockingVpnService::class.java).apply {
                     putStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS, ArrayList(domains))
+                    putExtra(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
                     putExtra(Argument.ACTION, Argument.START_ACTION)
                     putExtra(Argument.NOTIFICATION_ICON, notificationIcon)
                 }

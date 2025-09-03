@@ -168,6 +168,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
     bool? androidBlockUninstalling,
     String? appName,
     bool? androidUseDnsWebsiteBlocking,
+    String? androidForwardDnsServer,
   }) async {
     final result =
         await methodChannel.invokeMethod<bool>(
@@ -186,6 +187,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
             Argument.blockUninstalling: androidBlockUninstalling,
             Argument.appName: appName,
             Argument.useDnsWebsiteBlocking: androidUseDnsWebsiteBlocking,
+            Argument.forwardDnsServer: androidForwardDnsServer,
           },
         ) ??
         false;

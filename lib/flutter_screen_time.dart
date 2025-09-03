@@ -238,6 +238,9 @@ class FlutterScreenTime {
   ///
   /// [androidUseDnsWebsiteBlocking] If true, enables DNS-based website
   /// blocking.
+  ///
+  /// [androidForwardDnsServer] The dns server to use for non blocking websites.
+  /// Defaults to 8.8.8.8
   Future<bool> blockAppsAndWebDomains({
     FamilyActivitySelection? iOSSelection,
     List<String>? androidBundleIds,
@@ -252,6 +255,7 @@ class FlutterScreenTime {
     bool? androidBlockUninstalling,
     String? appName,
     bool? androidUseDnsWebsiteBlocking,
+    String? androidForwardDnsServer,
   }) {
     return FlutterScreenTimePlatform.instance.blockAppsAndWebDomains(
       iOSSelection: iOSSelection,
@@ -267,6 +271,7 @@ class FlutterScreenTime {
       androidBlockUninstalling: androidBlockUninstalling,
       appName: appName,
       androidUseDnsWebsiteBlocking: androidUseDnsWebsiteBlocking,
+      androidForwardDnsServer: androidForwardDnsServer,
     );
   }
 
