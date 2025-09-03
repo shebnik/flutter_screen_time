@@ -22,8 +22,4 @@ object Argument {
     const val APP_NAME = "appName"
     const val USE_DNS_WEBSITE_BLOCKING = "useDnsWebsiteBlocking"
     const val FORWARD_DNS_SERVER = "forwardDnsServer"
-
-    const val ACTION = "action"
-    const val START_ACTION = "start"
-    const val STOP_ACTION = "stop"
 }

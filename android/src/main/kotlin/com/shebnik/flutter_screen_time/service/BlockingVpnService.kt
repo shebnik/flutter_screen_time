@@ -1,13 +1,19 @@
 package com.shebnik.flutter_screen_time.service
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.VpnService
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.shebnik.flutter_screen_time.const.Argument
+import com.shebnik.flutter_screen_time.receiver.StopVpnReceiver
+import com.shebnik.flutter_screen_time.service.BlockingService.Companion.ACTION_STOP_BLOCKING
 import com.shebnik.flutter_screen_time.util.NotificationUtil
 import com.shebnik.flutter_screen_time.util.NotificationUtil.startForegroundWithGroupedNotification
+import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.DatagramPacket
@@ -21,8 +27,11 @@ class BlockingVpnService : VpnService() {
 
     private var forwardDnsServer: String? = null
 
+    private lateinit var stopVpnReceiver: StopVpnReceiver
+
     companion object {
         private const val TAG = "BlockingVpnService"
+        const val ACTION_STOP_VPN = "com.shebnik.flutter_screen_time.STOP_VPN"
         private val isRunning = AtomicBoolean(false)
         fun isRunning(): Boolean = isRunning.get()
 
@@ -40,57 +49,73 @@ class BlockingVpnService : VpnService() {
     override fun onCreate() {
         super.onCreate()
         NotificationUtil.createNotificationChannel(this)
-        Log.d(TAG, "DNS-Only VPN Service created")
+        stopVpnReceiver = StopVpnReceiver(this)
+
+        val filter = IntentFilter(ACTION_STOP_BLOCKING)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(stopVpnReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @SuppressLint("UnspecifiedRegisterReceiverFlag") registerReceiver(
+                stopVpnReceiver,
+                filter
+            )
+        }
+        Log.d(TAG, "VPN Service created")
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        try {
+            unregisterReceiver(stopVpnReceiver)
+        } catch (e: Exception) {
+            Log.e(BlockingService.Companion.TAG, "Error unregistering receiver", e)
+        }
         stopVpn()
         serviceScope.cancel()
         Log.d(TAG, "VPN Service destroyed")
+        super.onDestroy()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.getStringExtra(Argument.ACTION) ?: Argument.START_ACTION
+        val blockedDomainsArray =
+            intent?.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: emptyList()
+        this.blockedDomains = blockedDomainsArray.toSet()
+        Log.d(
+            TAG, "Loaded ${this.blockedDomains.size} blocked domains: ${
+                this.blockedDomains.joinToString(", ")
+            }"
+        )
 
-        when (action) {
-            Argument.START_ACTION -> {
-                val blockedDomainsArray =
-                    intent?.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: emptyList()
-                this.blockedDomains = blockedDomainsArray.toSet()
-                Log.d(
-                    TAG, "Loaded ${this.blockedDomains.size} blocked domains: ${
-                        this.blockedDomains.joinToString(", ")
-                    }"
-                )
+        forwardDnsServer = intent?.getStringExtra(Argument.FORWARD_DNS_SERVER)
+        Log.d(TAG, "Using forward DNS server: $forwardDnsServer")
 
-                forwardDnsServer = intent?.getStringExtra(Argument.FORWARD_DNS_SERVER)
-                Log.d(TAG, "Using forward DNS server: $forwardDnsServer")
-
-                val iconName = intent?.getStringExtra(Argument.NOTIFICATION_ICON)
-                val customIconResId = iconName?.let {
-                    NotificationUtil.getIconResource(this, it, packageName)
-                }
-                val notification = createVpnNotification(customIconResId)
-                startForegroundWithGroupedNotification(
-                    NotificationUtil.VPN_NOTIFICATION_ID, notification
-                )
-                startVpn()
-            }
-
-            Argument.STOP_ACTION -> {
-                stopVpn()
-            }
+        val iconName = intent?.getStringExtra(Argument.NOTIFICATION_ICON)
+        val customIconResId = iconName?.let {
+            NotificationUtil.getIconResource(this, it, packageName)
         }
+        val notification = createVpnNotification(customIconResId)
+        startForegroundWithGroupedNotification(
+            NotificationUtil.VPN_NOTIFICATION_ID, notification
+        )
+        startVpn()
 
         return START_STICKY
     }
 
     private fun createVpnNotification(customIconResId: Int?): Notification {
         val notificationTitle = "Website Blocking Active"
-        val notificationBody = "Forwarding DNS to ${
-            forwardDnsServer ?: DEFAULT_FORWARD_DNS_SERVER
-        }"
+        var notificationBody = ""
+        if (blockedDomains.isNotEmpty()) {
+            notificationBody =
+                "Blocking ${blockedDomains.size} website${if (blockedDomains.size > 1) "s" else ""}."
+        }
+        if (forwardDnsServer != null) {
+            if (notificationBody.isNotEmpty()) {
+                notificationBody += " "
+            }
+            notificationBody += "Forwarding DNS to ${
+                forwardDnsServer ?: DEFAULT_FORWARD_DNS_SERVER
+            }"
+        }
         return NotificationUtil.createVpnNotification(
             this,
             notificationTitle,
@@ -101,12 +126,7 @@ class BlockingVpnService : VpnService() {
 
     private fun startVpn() {
         try {
-            if (isRunning.get()) {
-                Log.d(TAG, "VPN already running")
-                return
-            }
-
-           val builder = Builder()
+            val builder = Builder()
                 .setMtu(1500)
                 .addAddress(VPN_ADDRESS, 32)
                 // Set our VPN as the DNS server so all DNS queries come to us
@@ -136,14 +156,14 @@ class BlockingVpnService : VpnService() {
         }
     }
 
-    private fun stopVpn() {
+    fun stopVpn() {
         try {
             isRunning.set(false)
             vpnJob?.cancel()
             vpnInterface?.close()
             vpnInterface = null
             Log.d(TAG, "VPN stopped")
-            stopSelf()
+            stopForegroundWithCleanup()
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping VPN", e)
         }
@@ -282,8 +302,8 @@ class BlockingVpnService : VpnService() {
 
                 // Extract source port for response
                 val sourcePort = ((originalPacket.get(udpHeaderOffset).toInt() and 0xFF) shl 8) or
-                               (originalPacket.get(udpHeaderOffset + 1).toInt() and 0xFF)
-                
+                        (originalPacket.get(udpHeaderOffset + 1).toInt() and 0xFF)
+
                 // Send query to real DNS server
                 val socket = DatagramSocket()
                 val query = DatagramPacket(
@@ -302,8 +322,8 @@ class BlockingVpnService : VpnService() {
 
                 // Create IP+UDP response packet
                 val responsePacket = createDnsResponsePacket(
-                    originalPacket, 
-                    response.data, 
+                    originalPacket,
+                    response.data,
                     response.length,
                     sourcePort
                 )

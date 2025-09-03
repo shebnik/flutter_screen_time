@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.PixelFormat
@@ -19,6 +20,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
 import android.widget.TextView
+import com.shebnik.flutter_screen_time.FlutterScreenTimeMethod
 import com.shebnik.flutter_screen_time.const.Argument
 import com.shebnik.flutter_screen_time.receiver.StopBlockingReceiver
 import com.shebnik.flutter_screen_time.util.NotificationUtil
@@ -238,8 +240,45 @@ class BlockingService : AccessibilityService() {
         useDNSWebsiteBlocking = intent?.getBooleanExtra(Argument.USE_DNS_WEBSITE_BLOCKING, false)
             ?: prefs.getBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, false)
         editor.putBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
+        if (useDNSWebsiteBlocking) {
+            val forwardDnsServer = intent?.getStringExtra(Argument.FORWARD_DNS_SERVER)
+            if (forwardDnsServer == null) editor.remove(Argument.FORWARD_DNS_SERVER)
+            else editor.putString(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
+
+            Log.d(TAG, "Starting VPN for DNS website blocking")
+            if (blockedDomains.isEmpty() && forwardDnsServer == null) {
+                Log.d(TAG, "No blocked domains or DNS server provided, skipping VPN start")
+                stopVpnService()
+            } else {
+                if (BlockingVpnService.isRunning()) stopVpnService()
+                Log.d(TAG, "Starting VPN service with ${blockedDomains.size} blocked domains")
+                val intent = Intent(this, BlockingVpnService::class.java).apply {
+                    putStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS, ArrayList(blockedDomains))
+                    putExtra(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
+                    putExtra(Argument.NOTIFICATION_ICON, customIconName)
+                }
+                try {
+                    startForegroundService(intent)
+                    Log.d(TAG, "VPN service started, forward DNS: $forwardDnsServer")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error starting VPN service", e)
+                }
+            }
+        }
 
         editor.apply()
+    }
+
+    fun stopVpnService(): Boolean {
+        return try {
+            val intent = Intent(BlockingVpnService.ACTION_STOP_VPN)
+            sendBroadcast(intent)
+            Log.d(FlutterScreenTimeMethod.TAG, "VPN service stop requested successfully")
+            true
+        } catch (e: Exception) {
+            Log.e(FlutterScreenTimeMethod.TAG, "Error stopping VPN service", e)
+            false
+        }
     }
 
     override fun onInterrupt() {
@@ -565,6 +604,7 @@ class BlockingService : AccessibilityService() {
         isServiceActive = false
         stopAppMonitoring()
         hideOverlay()
+        stopVpnService()
 
         backPressRunnable?.let { handler.removeCallbacks(it) }
         backPressRunnable = null
@@ -617,7 +657,7 @@ class BlockingService : AccessibilityService() {
             blockedApps.isNotEmpty() && blockedDomains.isNotEmpty() -> "Monitoring ${blockedApps.size} apps and ${blockedDomains.size} websites"
             blockedApps.isNotEmpty() -> "Monitoring ${blockedApps.size} apps"
             blockedDomains.isNotEmpty() -> "Monitoring ${blockedDomains.size} websites"
-            else -> "Blocker is not running"
+            else -> "Monitoring adult websites"
         }
     }
 

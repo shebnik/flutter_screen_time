@@ -527,42 +527,12 @@ object FlutterScreenTimeMethod {
 
         try {
             context.startForegroundService(intent)
+            Log.d(TAG, "Apps and Domain blocking started successfully")
+            return true
         } catch (e: Exception) {
             Log.e(TAG, "Error starting domain blocking", e)
             return false
         }
-        Log.d(TAG, "Apps and Domain blocking started successfully")
-
-        if (useDNSWebsiteBlocking) {
-            Log.d(TAG, "Starting VPN for DNS website blocking")
-            if (!BlockingVpnService.isRunning()) {
-                if (domains.isEmpty()) {
-                    Log.d(TAG, "No domains to block, skipping VPN start")
-                    return true
-                }
-                Log.d(TAG, "VPN not running, starting VPN service")
-                val intent = Intent(context, BlockingVpnService::class.java).apply {
-                    putStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS, ArrayList(domains))
-                    putExtra(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
-                    putExtra(Argument.ACTION, Argument.START_ACTION)
-                    putExtra(Argument.NOTIFICATION_ICON, notificationIcon)
-                }
-                try {
-                    context.startForegroundService(intent)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error starting VPN service", e)
-                    return false
-                }
-            } else {
-                Log.d(TAG, "VPN already running")
-                if (domains.isEmpty()) {
-                    Log.d(TAG, "No domains to block, stopping VPN service")
-                    return stopBlockingDomains(context)
-                }
-            }
-        }
-
-        return true
     }
 
 
@@ -577,5 +547,4 @@ object FlutterScreenTimeMethod {
             false
         }
     }
-
 }

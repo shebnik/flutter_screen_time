@@ -202,8 +202,9 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val args = call.arguments as Map<*, *>
                 val bundleIds = args[Argument.BUNDLE_IDS] as List<*>?
                 val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
-                if (bundleIds.isNullOrEmpty() && domains.isNullOrEmpty()) {
-                    Log.w(TAG, "No bundleIds or domains provided to block.")
+                val forwardDnsServer = args[Argument.FORWARD_DNS_SERVER] as String?
+                if (bundleIds.isNullOrEmpty() && domains.isNullOrEmpty() && forwardDnsServer == null) {
+                    Log.w(TAG, "No bundleIds, domains or dns server provided for blocking.")
                     result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebDomains(context))
                     return
                 }
@@ -222,7 +223,6 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
                 val useDNSWebsiteBlocking =
                     args[Argument.USE_DNS_WEBSITE_BLOCKING] as Boolean? ?: false
-                val forwardDnsServer = args[Argument.FORWARD_DNS_SERVER] as String?
 
                 if (!checkAuthorization(result, useDNSWebsiteBlocking)) {
                     return
