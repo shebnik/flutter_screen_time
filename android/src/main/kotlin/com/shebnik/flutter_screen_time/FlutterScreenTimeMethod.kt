@@ -538,9 +538,13 @@ object FlutterScreenTimeMethod {
 
     fun stopBlockingAppsAndWebDomains(context: Context): Boolean {
         return try {
-            val intent = Intent(BlockingService.ACTION_STOP_BLOCKING)
+            var intent = Intent(BlockingService.ACTION_STOP_BLOCKING)
             context.sendBroadcast(intent)
             Log.d(TAG, "Domain blocking stopped successfully")
+
+            intent = Intent(BlockingVpnService.ACTION_STOP_VPN)
+            context.sendBroadcast(intent)
+            Log.d(TAG, "VPN blocking stopped successfully")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping domain blocking", e)

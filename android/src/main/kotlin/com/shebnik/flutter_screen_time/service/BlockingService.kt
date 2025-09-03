@@ -63,6 +63,7 @@ class BlockingService : AccessibilityService() {
 
     // DNS blocking
     private var useDNSWebsiteBlocking: Boolean = false
+    private var forwardDnsServer: String? = null
 
     private lateinit var stopBlockingReceiver: StopBlockingReceiver
 
@@ -241,7 +242,7 @@ class BlockingService : AccessibilityService() {
             ?: prefs.getBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, false)
         editor.putBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
         if (useDNSWebsiteBlocking) {
-            val forwardDnsServer = intent?.getStringExtra(Argument.FORWARD_DNS_SERVER)
+            forwardDnsServer = intent?.getStringExtra(Argument.FORWARD_DNS_SERVER)
             if (forwardDnsServer == null) editor.remove(Argument.FORWARD_DNS_SERVER)
             else editor.putString(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
 
@@ -250,7 +251,6 @@ class BlockingService : AccessibilityService() {
                 Log.d(TAG, "No blocked domains or DNS server provided, skipping VPN start")
                 stopVpnService()
             } else {
-                if (BlockingVpnService.isRunning()) stopVpnService()
                 Log.d(TAG, "Starting VPN service with ${blockedDomains.size} blocked domains")
                 val intent = Intent(this, BlockingVpnService::class.java).apply {
                     putStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS, ArrayList(blockedDomains))
@@ -617,7 +617,7 @@ class BlockingService : AccessibilityService() {
 
     fun stopBlockingApps() {
         blockedApps = emptyList()
-        if (blockedDomains.isEmpty()) {
+        if (blockedDomains.isEmpty() && forwardDnsServer == null) {
             stopBlocking()
         }
         Log.d(TAG, "App blocking deactivated")
@@ -625,7 +625,7 @@ class BlockingService : AccessibilityService() {
 
     fun stopBlockingWebsites() {
         blockedDomains = emptyList()
-        if (blockedApps.isEmpty()) {
+        if (blockedApps.isEmpty() && forwardDnsServer == null) {
             stopBlocking()
         }
         Log.d(TAG, "Website blocking deactivated")

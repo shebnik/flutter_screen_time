@@ -10,7 +10,6 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.shebnik.flutter_screen_time.const.Argument
 import com.shebnik.flutter_screen_time.receiver.StopVpnReceiver
-import com.shebnik.flutter_screen_time.service.BlockingService.Companion.ACTION_STOP_BLOCKING
 import com.shebnik.flutter_screen_time.util.NotificationUtil
 import com.shebnik.flutter_screen_time.util.NotificationUtil.startForegroundWithGroupedNotification
 import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
@@ -49,18 +48,23 @@ class BlockingVpnService : VpnService() {
     override fun onCreate() {
         super.onCreate()
         NotificationUtil.createNotificationChannel(this)
+        Log.d(TAG, "VPN Service created")
+        
         stopVpnReceiver = StopVpnReceiver(this)
 
-        val filter = IntentFilter(ACTION_STOP_BLOCKING)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(stopVpnReceiver, filter, RECEIVER_NOT_EXPORTED)
-        } else {
-            @SuppressLint("UnspecifiedRegisterReceiverFlag") registerReceiver(
-                stopVpnReceiver,
-                filter
-            )
+        val filter = IntentFilter(ACTION_STOP_VPN)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(stopVpnReceiver, filter, RECEIVER_NOT_EXPORTED)
+            } else {
+                @SuppressLint("UnspecifiedRegisterReceiverFlag") registerReceiver(
+                    stopVpnReceiver,
+                    filter
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error registering receiver", e)
         }
-        Log.d(TAG, "VPN Service created")
     }
 
     override fun onDestroy() {
@@ -78,14 +82,23 @@ class BlockingVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val blockedDomainsArray =
             intent?.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: emptyList()
-        this.blockedDomains = blockedDomainsArray.toSet()
+        val newBlockedDomains = blockedDomainsArray.toSet()
+        
+        val newForwardDnsServer = intent?.getStringExtra(Argument.FORWARD_DNS_SERVER)
+        
+        // Check if configuration has changed
+        val configChanged = this.blockedDomains != newBlockedDomains || 
+                           this.forwardDnsServer != newForwardDnsServer
+        
+        // Update configuration
+        this.blockedDomains = newBlockedDomains
+        this.forwardDnsServer = newForwardDnsServer
+        
         Log.d(
             TAG, "Loaded ${this.blockedDomains.size} blocked domains: ${
                 this.blockedDomains.joinToString(", ")
             }"
         )
-
-        forwardDnsServer = intent?.getStringExtra(Argument.FORWARD_DNS_SERVER)
         Log.d(TAG, "Using forward DNS server: $forwardDnsServer")
 
         val iconName = intent?.getStringExtra(Argument.NOTIFICATION_ICON)
@@ -96,7 +109,15 @@ class BlockingVpnService : VpnService() {
         startForegroundWithGroupedNotification(
             NotificationUtil.VPN_NOTIFICATION_ID, notification
         )
-        startVpn()
+        
+        // If VPN is already running and configuration changed, restart it
+        if (isRunning.get() && configChanged) {
+            Log.d(TAG, "Configuration changed, restarting VPN")
+            restartVpn()
+        } else if (!isRunning.get()) {
+            // Start VPN if not running
+            startVpn()
+        }
 
         return START_STICKY
     }
@@ -156,6 +177,21 @@ class BlockingVpnService : VpnService() {
         }
     }
 
+    private fun restartVpn() {
+        try {
+            // Stop current VPN without stopping the service
+            vpnJob?.cancel()
+            vpnInterface?.close()
+            vpnInterface = null
+            
+            // Start VPN with new configuration
+            startVpn()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error restarting VPN", e)
+            stopVpn()
+        }
+    }
+
     fun stopVpn() {
         try {
             isRunning.set(false)
@@ -163,7 +199,7 @@ class BlockingVpnService : VpnService() {
             vpnInterface?.close()
             vpnInterface = null
             Log.d(TAG, "VPN stopped")
-            stopForegroundWithCleanup()
+            stopSelf()
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping VPN", e)
         }
