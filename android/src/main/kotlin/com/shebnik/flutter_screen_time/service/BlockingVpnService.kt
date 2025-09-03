@@ -86,6 +86,10 @@ class BlockingVpnService : VpnService() {
         
         val newForwardDnsServer = intent?.getStringExtra(Argument.FORWARD_DNS_SERVER)
         
+        // Check if configuration has changed
+        val configChanged = this.blockedDomains != newBlockedDomains || 
+                           this.forwardDnsServer != newForwardDnsServer
+        
         // Update configuration
         this.blockedDomains = newBlockedDomains
         this.forwardDnsServer = newForwardDnsServer
@@ -105,7 +109,15 @@ class BlockingVpnService : VpnService() {
         startForegroundWithGroupedNotification(
             NotificationUtil.VPN_NOTIFICATION_ID, notification
         )
-        restartVpn()
+        
+        // If VPN is already running and configuration changed, restart it
+        if (isRunning.get() && configChanged) {
+            Log.d(TAG, "Configuration changed, restarting VPN")
+            restartVpn()
+        } else if (!isRunning.get()) {
+            // Start VPN if not running
+            startVpn()
+        }
 
         return START_STICKY
     }
@@ -134,8 +146,8 @@ class BlockingVpnService : VpnService() {
     }
 
     private fun startVpn() {
-        prepare(this)
         try {
+            prepare(this)
             val builder = Builder()
                 .setMtu(1500)
                 .addAddress(VPN_ADDRESS, 32)
