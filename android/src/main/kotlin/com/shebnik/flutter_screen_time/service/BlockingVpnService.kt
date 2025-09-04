@@ -7,12 +7,12 @@ import android.content.IntentFilter
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
-import android.util.Log
 import com.shebnik.flutter_screen_time.const.Argument
 import com.shebnik.flutter_screen_time.receiver.StopVpnReceiver
 import com.shebnik.flutter_screen_time.util.NotificationUtil
 import com.shebnik.flutter_screen_time.util.NotificationUtil.startForegroundWithGroupedNotification
-import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
+import com.shebnik.flutter_screen_time.util.logDebug
+import com.shebnik.flutter_screen_time.util.logError
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.DatagramPacket
@@ -48,7 +48,7 @@ class BlockingVpnService : VpnService() {
     override fun onCreate() {
         super.onCreate()
         NotificationUtil.createNotificationChannel(this)
-        Log.d(TAG, "VPN Service created")
+        logDebug(TAG, "VPN Service created")
         
         stopVpnReceiver = StopVpnReceiver(this)
 
@@ -63,7 +63,7 @@ class BlockingVpnService : VpnService() {
                 )
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error registering receiver", e)
+            logError(TAG, "Error registering receiver", e)
         }
     }
 
@@ -71,11 +71,11 @@ class BlockingVpnService : VpnService() {
         try {
             unregisterReceiver(stopVpnReceiver)
         } catch (e: Exception) {
-            Log.e(BlockingService.Companion.TAG, "Error unregistering receiver", e)
+            logError(BlockingService.Companion.TAG, "Error unregistering receiver", e)
         }
         stopVpn()
         serviceScope.cancel()
-        Log.d(TAG, "VPN Service destroyed")
+        logDebug(TAG, "VPN Service destroyed")
         super.onDestroy()
     }
 
@@ -94,12 +94,12 @@ class BlockingVpnService : VpnService() {
         this.blockedDomains = newBlockedDomains
         this.forwardDnsServer = newForwardDnsServer
         
-        Log.d(
+        logDebug(
             TAG, "Loaded ${this.blockedDomains.size} blocked domains: ${
                 this.blockedDomains.joinToString(", ")
             }"
         )
-        Log.d(TAG, "Using forward DNS server: $forwardDnsServer")
+        logDebug(TAG, "Using forward DNS server: $forwardDnsServer")
 
         val iconName = intent?.getStringExtra(Argument.NOTIFICATION_ICON)
         val customIconResId = iconName?.let {
@@ -112,7 +112,7 @@ class BlockingVpnService : VpnService() {
         
         // If VPN is already running and configuration changed, restart it
         if (isRunning.get() && configChanged) {
-            Log.d(TAG, "Configuration changed, restarting VPN")
+            logDebug(TAG, "Configuration changed, restarting VPN")
             restartVpn()
         } else if (!isRunning.get()) {
             // Start VPN if not running
@@ -160,12 +160,12 @@ class BlockingVpnService : VpnService() {
 
             vpnInterface = builder.establish()
             if (vpnInterface == null) {
-                Log.e(TAG, "Failed to establish VPN interface")
+                logError(TAG, "Failed to establish VPN interface")
                 return
             }
 
             isRunning.set(true)
-            Log.d(TAG, "VPN started successfully")
+            logDebug(TAG, "VPN started successfully")
 
             // Start packet processing in background
             vpnJob = serviceScope.launch {
@@ -173,7 +173,7 @@ class BlockingVpnService : VpnService() {
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting VPN", e)
+            logError(TAG, "Error starting VPN", e)
             stopVpn()
         }
     }
@@ -188,7 +188,7 @@ class BlockingVpnService : VpnService() {
             // Start VPN with new configuration
             startVpn()
         } catch (e: Exception) {
-            Log.e(TAG, "Error restarting VPN", e)
+            logError(TAG, "Error restarting VPN", e)
             stopVpn()
         }
     }
@@ -199,10 +199,10 @@ class BlockingVpnService : VpnService() {
             vpnJob?.cancel()
             vpnInterface?.close()
             vpnInterface = null
-            Log.d(TAG, "VPN stopped")
+            logDebug(TAG, "VPN stopped")
             stopSelf()
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping VPN", e)
+            logError(TAG, "Error stopping VPN", e)
         }
     }
 
@@ -222,7 +222,7 @@ class BlockingVpnService : VpnService() {
             }
         } catch (e: Exception) {
             if (isRunning.get()) {
-                Log.e(TAG, "Error processing packets", e)
+                logError(TAG, "Error processing packets", e)
             }
         }
     }
@@ -252,10 +252,10 @@ class BlockingVpnService : VpnService() {
             } else {
                 // For non-DNS packets, just drop them since we only want to handle DNS
                 // This prevents infinite loops and allows normal traffic to flow through the regular interface
-                Log.v(TAG, "Dropping non-DNS packet on port $destPort")
+                // Log.v(TAG, "Dropping non-DNS packet on port $destPort")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error processing packet", e)
+            logError(TAG, "Error processing packet", e)
         }
     }
 
@@ -309,7 +309,7 @@ class BlockingVpnService : VpnService() {
 
             // Check if domain should be blocked
             if (shouldBlockDomain(domain)) {
-                Log.d(TAG, "Blocking DNS query for: $domain")
+                logDebug(TAG, "Blocking DNS query for: $domain")
                 sendBlockedDnsResponse(packet, vpnOutput, transactionId)
             } else {
                 // Log.v(TAG, "Allowing DNS query for: $domain")
@@ -318,7 +318,7 @@ class BlockingVpnService : VpnService() {
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error processing DNS packet", e)
+            logError(TAG, "Error processing DNS packet", e)
             // Forward original packet on error
             forwardDnsQuery(packet, vpnOutput)
         }
@@ -368,7 +368,7 @@ class BlockingVpnService : VpnService() {
                 vpnOutput.write(responsePacket)
 
             } catch (e: Exception) {
-                Log.e(TAG, "Error forwarding DNS query", e)
+                logError(TAG, "Error forwarding DNS query", e)
             }
         }
     }
@@ -444,7 +444,7 @@ class BlockingVpnService : VpnService() {
             val response = createBlockedDnsResponse(originalPacket, transactionId)
             vpnOutput.write(response)
         } catch (e: Exception) {
-            Log.e(TAG, "Error sending blocked DNS response", e)
+            logError(TAG, "Error sending blocked DNS response", e)
         }
     }
 

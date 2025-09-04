@@ -1,8 +1,9 @@
 package com.shebnik.flutter_screen_time.const
 
 object Argument {
-    const val PERMISSION_TYPE = "permissionType"
+    const val LOG_FILE_PATH = "logFilePath"
 
+    const val PERMISSION_TYPE = "permissionType"
     const val BLOCKED_WEB_DOMAINS = "blockedWebDomains"
 
     // Android only

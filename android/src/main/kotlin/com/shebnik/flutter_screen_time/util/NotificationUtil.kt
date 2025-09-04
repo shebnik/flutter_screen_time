@@ -7,7 +7,6 @@ import android.app.NotificationManager
 import android.app.Service
 import android.app.Service.STOP_FOREGROUND_REMOVE
 import android.content.Context
-import android.util.Log
 import androidx.core.app.NotificationCompat
 
 object NotificationUtil {
@@ -201,7 +200,7 @@ object NotificationUtil {
             // If no other notifications in group, remove summary
             if (groupNotifications.isEmpty()) {
                 notificationManager.cancel(GROUP_SUMMARY_ID)
-                Log.d(TAG, "Group summary notification removed")
+                logDebug(TAG, "Group summary notification removed")
             } else {
                 // Update summary with current count
                 updateGroupSummary(context, groupIconResId)
@@ -224,7 +223,7 @@ object NotificationUtil {
             val resId = resources.getIdentifier(iconName, "drawable", callerPackageName)
             if (resId != 0) resId else null
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting icon resource: $iconName", e)
+            logError(TAG, "Error getting icon resource: $iconName", e)
             null
         }
     }

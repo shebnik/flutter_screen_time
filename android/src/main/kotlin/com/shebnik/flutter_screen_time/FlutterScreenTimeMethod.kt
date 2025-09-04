@@ -17,7 +17,6 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import android.provider.Settings
 import android.util.Base64
-import android.util.Log
 import android.view.accessibility.AccessibilityManager
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
@@ -31,6 +30,12 @@ import com.shebnik.flutter_screen_time.service.BlockAppsService
 import com.shebnik.flutter_screen_time.service.BlockingService
 import com.shebnik.flutter_screen_time.service.WebsitesBlockingAccessibilityService
 import com.shebnik.flutter_screen_time.util.ApplicationInfoUtil
+import com.shebnik.flutter_screen_time.util.Logger
+import com.shebnik.flutter_screen_time.util.logDebug
+import com.shebnik.flutter_screen_time.util.logError
+import com.shebnik.flutter_screen_time.util.logInfo
+import com.shebnik.flutter_screen_time.util.logSuccess
+import com.shebnik.flutter_screen_time.util.logWarning
 import java.io.ByteArrayOutputStream
 import android.net.VpnService
 import com.shebnik.flutter_screen_time.service.BlockingVpnService
@@ -40,12 +45,34 @@ object FlutterScreenTimeMethod {
 
     const val TAG = "FlutterScreenTimeMethod"
 
+    /**
+     * Configure the plugin with various settings
+     * @param logFilePath Optional path to configure file logging
+     * @return Map containing configuration results
+     */
+    fun configure(logFilePath: String?): Map<String, Any> {
+        logInfo(TAG, "🔧 Configuring Flutter Screen Time plugin")
+        
+        val configuredItems = mutableListOf<String>()
+        
+        // Configure logging if logFilePath is provided
+        logFilePath?.let { path ->
+            Logger.getInstance().configureLogFile(path)
+            configuredItems.add("logging")
+            logSuccess(TAG, "Logging configured: $path")
+        }
+        
+        return mapOf(
+            "configured" to configuredItems
+        )
+    }
+
     fun authorizationStatus(
         context: Context,
         type: PermissionType = PermissionType.APP_USAGE,
         isOnlyWebsitesBlocking: Boolean
     ): AuthorizationStatus {
-        Log.i(TAG, "Requesting authorizationStatus for PermissionType ${type.name}")
+        logInfo(TAG, "Requesting authorizationStatus for PermissionType ${type.name}")
         when (type) {
             PermissionType.APP_USAGE -> {
                 val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
@@ -137,7 +164,7 @@ object FlutterScreenTimeMethod {
         type: PermissionType = PermissionType.APP_USAGE,
         isOnlyWebsitesBlocking: Boolean
     ): Boolean {
-        Log.i(TAG, "Requesting permission for ${type.name}")
+        logInfo(TAG, "Requesting permission for ${type.name}")
         val packageUri = "package:${activity.packageName}".toUri()
         return when (type) {
             PermissionType.APP_USAGE -> {
@@ -150,7 +177,7 @@ object FlutterScreenTimeMethod {
                     )
                     true
                 } catch (exception: Exception) {
-                    exception.localizedMessage?.let { Log.e("requestPermission appUsage", it) }
+                    logError("requestPermission", "Failed to request app usage permission: ${exception.localizedMessage}", exception)
                     false
                 }
             }
@@ -171,7 +198,7 @@ object FlutterScreenTimeMethod {
                     }
                 } catch (exception: Exception) {
                     exception.localizedMessage?.let {
-                        Log.e("requestPermission manageOverlayPermission", it)
+                        logError("requestPermission manageOverlayPermission", it)
                     }
                     false
                 }
@@ -191,7 +218,7 @@ object FlutterScreenTimeMethod {
                         true // Notification permission not needed for Android < 13
                     }
                 } catch (exception: Exception) {
-                    exception.localizedMessage?.let { Log.e("requestPermission NOTIFICATION", it) }
+                    exception.localizedMessage?.let { logError("requestPermission NOTIFICATION", it) }
                     false
                 }
             }
@@ -208,7 +235,7 @@ object FlutterScreenTimeMethod {
                     true
                 } catch (e: Exception) {
                     e.localizedMessage?.let {
-                        Log.e(
+                        logError(
                             "requestPermission ACCESSIBILITY_SETTINGS", it
                         )
                     }
@@ -227,7 +254,7 @@ object FlutterScreenTimeMethod {
                     true
                 } catch (e: Exception) {
                     e.localizedMessage?.let {
-                        Log.e(
+                        logError(
                             "requestPermission VPN", it
                         )
                     }
@@ -272,7 +299,7 @@ object FlutterScreenTimeMethod {
                         }
                     } catch (e: PackageManager.NameNotFoundException) {
                         // Package not found, skip it
-                        Log.w("installedApps error: $e", "Package not found: $packageName")
+                        logWarning("installedApps error: $e", "Package not found: $packageName")
                     }
                 }
             } else {
@@ -333,7 +360,7 @@ object FlutterScreenTimeMethod {
                 Field.DATA to appMap,
             )
         } catch (exception: Exception) {
-            exception.localizedMessage?.let { Log.e("installedApps", it) }
+            exception.localizedMessage?.let { logError("installedApps", it) }
 
             return mutableMapOf(
                 Field.STATUS to false,
@@ -404,12 +431,12 @@ object FlutterScreenTimeMethod {
             } catch (e: Exception) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     if (e is ForegroundServiceStartNotAllowedException) {
-                        Log.e(TAG, "Foreground service start not allowed", e)
+                        logError(TAG, "Foreground service start not allowed", e)
                     } else {
-                        Log.e(TAG, "Foreground service start not allowed", e)
+                        logError(TAG, "Foreground service start not allowed", e)
                     }
                 } else {
-                    Log.e(TAG, "Foreground service start not allowed", e)
+                    logError(TAG, "Foreground service start not allowed", e)
                 }
 
                 return false
@@ -417,7 +444,7 @@ object FlutterScreenTimeMethod {
 
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting block", e)
+            logError(TAG, "Error starting block", e)
             return false
         }
     }
@@ -426,10 +453,10 @@ object FlutterScreenTimeMethod {
         return try {
             val intent = Intent(context, BlockAppsService::class.java)
             context.stopService(intent)
-            Log.d(TAG, "BlockAppService stopped successfully")
+            logDebug(TAG, "BlockAppService stopped successfully")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping block service", e)
+            logError(TAG, "Error stopping block service", e)
             false
         }
     }
@@ -469,10 +496,10 @@ object FlutterScreenTimeMethod {
         try {
             context.startForegroundService(intent)
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting domain blocking", e)
+            logError(TAG, "Error starting domain blocking", e)
             return false
         }
-        Log.d(TAG, "Domain blocking started successfully")
+        logSuccess(TAG, "Domain blocking started successfully")
         return true
     }
 
@@ -480,10 +507,10 @@ object FlutterScreenTimeMethod {
         return try {
             val intent = Intent(WebsitesBlockingAccessibilityService.ACTION_STOP_BLOCKING)
             context.sendBroadcast(intent)
-            Log.d(TAG, "Domain blocking stopped successfully")
+            logDebug(TAG, "Domain blocking stopped successfully")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping domain blocking", e)
+            logError(TAG, "Error stopping domain blocking", e)
             false
         }
     }
@@ -527,10 +554,10 @@ object FlutterScreenTimeMethod {
 
         try {
             context.startForegroundService(intent)
-            Log.d(TAG, "Apps and Domain blocking started successfully")
+            logDebug(TAG, "Apps and Domain blocking started successfully")
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting domain blocking", e)
+            logError(TAG, "Error starting domain blocking", e)
             return false
         }
     }
@@ -540,14 +567,14 @@ object FlutterScreenTimeMethod {
         return try {
             var intent = Intent(BlockingService.ACTION_STOP_BLOCKING)
             context.sendBroadcast(intent)
-            Log.d(TAG, "Domain blocking stopped successfully")
+            logDebug(TAG, "Domain blocking stopped successfully")
 
             intent = Intent(BlockingVpnService.ACTION_STOP_VPN)
             context.sendBroadcast(intent)
-            Log.d(TAG, "VPN blocking stopped successfully")
+            logDebug(TAG, "VPN blocking stopped successfully")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping domain blocking", e)
+            logError(TAG, "Error stopping domain blocking", e)
             false
         }
     }

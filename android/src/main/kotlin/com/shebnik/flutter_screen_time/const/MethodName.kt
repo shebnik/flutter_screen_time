@@ -1,6 +1,8 @@
 package com.shebnik.flutter_screen_time.const
 
 object MethodName {
+    const val CONFIGURE = "configure"
+
     const val REQUEST_PERMISSION = "requestPermission"
     const val AUTHORIZATION_STATUS = "authorizationStatus"
 

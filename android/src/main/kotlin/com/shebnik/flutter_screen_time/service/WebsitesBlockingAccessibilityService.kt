@@ -10,7 +10,6 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -23,6 +22,9 @@ import com.shebnik.flutter_screen_time.const.Argument
 import com.shebnik.flutter_screen_time.receiver.StopWebsitesBlockingReceiver
 import com.shebnik.flutter_screen_time.util.NotificationUtil
 import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
+import com.shebnik.flutter_screen_time.util.logDebug
+import com.shebnik.flutter_screen_time.util.logError
+import com.shebnik.flutter_screen_time.util.logWarning
 import java.net.URL
 
 class WebsitesBlockingAccessibilityService : AccessibilityService() {
@@ -123,7 +125,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Log.d(TAG, "Accessibility service connected")
+        logDebug(TAG, "Accessibility service connected")
 
         // Initialize WindowManager for overlay
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -146,7 +148,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "Accessibility service started")
+        logDebug(TAG, "Accessibility service started")
 
         intent?.let {
             blockedDomains =
@@ -196,7 +198,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
         startForeground(NotificationUtil.WEBSITES_BLOCKING_NOTIFICATION_ID, notification)
 
         startAppMonitoring()
-        Log.d(
+        logDebug(
             TAG,
             "Domain blocking started for domains: $blockedDomains, browser-only: $blockWebsitesOnlyInBrowsers"
         )
@@ -204,7 +206,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
-        Log.d(TAG, "Accessibility service interrupted")
+        logDebug(TAG, "Accessibility service interrupted")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -251,7 +253,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in URL check runnable", e)
+            logError(TAG, "Error in URL check runnable", e)
         }
     }
 
@@ -274,7 +276,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
             @SuppressLint("DiscouragedApi")
             resources.getIdentifier(resourceName, type, callerPackageName)
         } catch (e: Exception) {
-            Log.e(BlockAppsService.Companion.TAG, "Error getting layout resource", e)
+            logError(BlockAppsService.Companion.TAG, "Error getting layout resource", e)
             0
         }
     }
@@ -336,10 +338,10 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
             isOverlayShowing = true
 
             startCountdown()
-            Log.d(TAG, "Blocking overlay shown")
+            logDebug(TAG, "Blocking overlay shown")
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error showing blocking overlay", e)
+            logError(TAG, "Error showing blocking overlay", e)
         }
     }
 
@@ -354,10 +356,10 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
                 countdownRunnable?.let { handler.removeCallbacks(it) }
                 countdownRunnable = null
 
-                Log.d(TAG, "Blocking overlay hidden")
+                logDebug(TAG, "Blocking overlay hidden")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error hiding blocking overlay", e)
+            logError(TAG, "Error hiding blocking overlay", e)
         }
     }
 
@@ -378,7 +380,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
                     // Countdown finished, hide overlay and perform home action
                     hideBlockingOverlay()
                     performGlobalAction(GLOBAL_ACTION_HOME)
-                    Log.d(TAG, "Countdown finished, navigated to home")
+                    logDebug(TAG, "Countdown finished, navigated to home")
                 }
             }
         }
@@ -392,12 +394,12 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intent)
                 hideBlockingOverlay()
-                Log.d(TAG, "Launched caller app: $callerPackageName")
+                logDebug(TAG, "Launched caller app: $callerPackageName")
             } else {
-                Log.e(TAG, "Cannot launch caller app: $callerPackageName")
+                logError(TAG, "Cannot launch caller app: $callerPackageName")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error launching caller app", e)
+            logError(TAG, "Error launching caller app", e)
         }
     }
 
@@ -410,18 +412,18 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
                     val success = performGlobalAction(GLOBAL_ACTION_BACK)
                     if (success) {
                         backPressCount++
-                        Log.d(TAG, "Back press $backPressCount/$BACK_PRESS_COUNT performed")
+                        logDebug(TAG, "Back press $backPressCount/$BACK_PRESS_COUNT performed")
 
                         // Continue with next back press
                         handler.postDelayed(this, BACK_PRESS_INTERVAL)
                     } else {
-                        Log.w(TAG, "Back press $backPressCount failed, retrying...")
+                        logWarning(TAG, "Back press $backPressCount failed, retrying...")
                         handler.postDelayed(this, BACK_PRESS_INTERVAL)
                     }
                 } else {
                     // All back presses completed, perform home action
                     performGlobalAction(GLOBAL_ACTION_HOME)
-                    Log.d(TAG, "All back presses completed, navigated to home")
+                    logDebug(TAG, "All back presses completed, navigated to home")
                 }
             }
         }
@@ -446,19 +448,19 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
 
         stopForegroundWithCleanup()
         currentUrl = null
-        Log.d(TAG, "Domain blocking deactivated")
+        logDebug(TAG, "Domain blocking deactivated")
     }
 
     override fun onDestroy() {
         try {
             unregisterReceiver(stopBlockingReceiver)
         } catch (e: Exception) {
-            Log.e(TAG, "Error unregistering receiver", e)
+            logError(TAG, "Error unregistering receiver", e)
         }
 
         hideBlockingOverlay()
         NotificationUtil.cleanupGroupSummary(this)
-        Log.d(TAG, "Accessibility service destroyed")
+        logDebug(TAG, "Accessibility service destroyed")
         super.onDestroy()
     }
 
@@ -511,7 +513,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking foreground app", e)
+            logError(TAG, "Error checking foreground app", e)
         }
     }
 
@@ -531,7 +533,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
             if (url != null) {
                 // Always update and check, don't compare with currentUrl to avoid missing cases
                 currentUrl = url
-                Log.d(TAG, "URL detected in $packageName: $url")
+                logDebug(TAG, "URL detected in $packageName: $url")
 
                 if (isBlockedDomain(url)) {
                     if (useOverlayCountdown) {
@@ -539,22 +541,22 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
 
                         // Check cooldown to prevent rapid blocking
                         if (currentTime - lastBlockTime < blockCooldownMs) {
-                            Log.d(TAG, "Blocking action skipped due to cooldown")
+                            logDebug(TAG, "Blocking action skipped due to cooldown")
                             return
                         }
 
                         lastBlockTime = currentTime
                         showBlockingOverlay()
                         startBackButtonSequence()
-                        Log.d(TAG, "Blocked domain detected, blocking actions initiated: $url")
+                        logDebug(TAG, "Blocked domain detected, blocking actions initiated: $url")
                     } else {
                         performBackAction()
-                        Log.d(TAG, "Blocked domain detected, back action performed: $url")
+                        logDebug(TAG, "Blocked domain detected, back action performed: $url")
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking URL", e)
+            logError(TAG, "Error checking URL", e)
         }
     }
 
@@ -570,7 +572,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
                 }, 1000)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking current app URL", e)
+            logError(TAG, "Error checking current app URL", e)
         }
     }
 
@@ -580,7 +582,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
 
             // Check cooldown to prevent rapid back presses
             if (currentTime - lastBlockTime < blockCooldownMs) {
-                Log.d(TAG, "Back action blocked due to cooldown")
+                logDebug(TAG, "Back action blocked due to cooldown")
                 return
             }
 
@@ -590,16 +592,16 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
             val success = performGlobalAction(GLOBAL_ACTION_BACK)
 
             if (success) {
-                Log.d(TAG, "Back action performed successfully")
+                logDebug(TAG, "Back action performed successfully")
             } else {
-                Log.w(TAG, "Back action failed")
+                logWarning(TAG, "Back action failed")
                 // Fallback: try again after a short delay
                 handler.postDelayed({
                     performGlobalAction(GLOBAL_ACTION_BACK)
                 }, 500)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error performing back action", e)
+            logError(TAG, "Error performing back action", e)
         }
     }
 
@@ -829,7 +831,7 @@ class WebsitesBlockingAccessibilityService : AccessibilityService() {
                 }
             } ?: false
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking blocked domain for URL: $url", e)
+            logError(TAG, "Error checking blocked domain for URL: $url", e)
             false
         }
     }

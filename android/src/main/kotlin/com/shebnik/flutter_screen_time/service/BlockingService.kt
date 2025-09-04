@@ -11,7 +11,6 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -26,6 +25,9 @@ import com.shebnik.flutter_screen_time.receiver.StopBlockingReceiver
 import com.shebnik.flutter_screen_time.util.NotificationUtil
 import com.shebnik.flutter_screen_time.util.NotificationUtil.startForegroundWithGroupedNotification
 import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
+import com.shebnik.flutter_screen_time.util.logDebug
+import com.shebnik.flutter_screen_time.util.logError
+import com.shebnik.flutter_screen_time.util.logWarning
 
 class BlockingService : AccessibilityService() {
 
@@ -84,7 +86,7 @@ class BlockingService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Log.d(TAG, "Unified blocking accessibility service connected")
+        logDebug(TAG, "Unified blocking accessibility service connected")
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         NotificationUtil.createNotificationChannel(this)
@@ -103,7 +105,7 @@ class BlockingService : AccessibilityService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "Unified blocking service started")
+        logDebug(TAG, "Unified blocking service started")
 
         val prefs = this.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
@@ -126,7 +128,7 @@ class BlockingService : AccessibilityService() {
         )
 
         startAppMonitoring()
-        Log.d(
+        logDebug(
             TAG,
             "Unified blocking started - Apps: ${blockedApps.size}, Domains: ${blockedDomains.size}"
         )
@@ -246,12 +248,12 @@ class BlockingService : AccessibilityService() {
             if (forwardDnsServer == null) editor.remove(Argument.FORWARD_DNS_SERVER)
             else editor.putString(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
 
-            Log.d(TAG, "Starting VPN for DNS website blocking")
+            logDebug(TAG, "Starting VPN for DNS website blocking")
             if (blockedDomains.isEmpty() && forwardDnsServer == null) {
-                Log.d(TAG, "No blocked domains or DNS server provided, skipping VPN start")
+                logDebug(TAG, "No blocked domains or DNS server provided, skipping VPN start")
                 stopVpnService()
             } else {
-                Log.d(TAG, "Starting VPN service with ${blockedDomains.size} blocked domains")
+                logDebug(TAG, "Starting VPN service with ${blockedDomains.size} blocked domains")
                 val intent = Intent(this, BlockingVpnService::class.java).apply {
                     putStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS, ArrayList(blockedDomains))
                     putExtra(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
@@ -259,9 +261,9 @@ class BlockingService : AccessibilityService() {
                 }
                 try {
                     startForegroundService(intent)
-                    Log.d(TAG, "VPN service started, forward DNS: $forwardDnsServer")
+                    logDebug(TAG, "VPN service started, forward DNS: $forwardDnsServer")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error starting VPN service", e)
+                    logError(TAG, "Error starting VPN service", e)
                 }
             }
         }
@@ -273,16 +275,16 @@ class BlockingService : AccessibilityService() {
         return try {
             val intent = Intent(BlockingVpnService.ACTION_STOP_VPN)
             sendBroadcast(intent)
-            Log.d(FlutterScreenTimeMethod.TAG, "VPN service stop requested successfully")
+            logDebug(FlutterScreenTimeMethod.TAG, "VPN service stop requested successfully")
             true
         } catch (e: Exception) {
-            Log.e(FlutterScreenTimeMethod.TAG, "Error stopping VPN service", e)
+            logError(FlutterScreenTimeMethod.TAG, "Error stopping VPN service", e)
             false
         }
     }
 
     override fun onInterrupt() {
-        Log.d(TAG, "Unified blocking service interrupted")
+        logDebug(TAG, "Unified blocking service interrupted")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -305,7 +307,7 @@ class BlockingService : AccessibilityService() {
 
         if (blockedDomains.isEmpty() || useDNSWebsiteBlocking) return
         if (event.packageName?.toString() == callerPackageName) {
-            Log.d(TAG, "Skipping website blocking for caller package: ${event.packageName}")
+            logDebug(TAG, "Skipping website blocking for caller package: ${event.packageName}")
             return
         }
 
@@ -314,7 +316,7 @@ class BlockingService : AccessibilityService() {
         val blockedDomain = blockResult.second
 
         if (shouldBlock) {
-            Log.d(TAG, "Blocked access to $blockedDomain")
+            logDebug(TAG, "Blocked access to $blockedDomain")
             showOverlay()
             handler.postDelayed({
                 if (useOverlayCountdown) {
@@ -333,7 +335,7 @@ class BlockingService : AccessibilityService() {
                 val text = source.text?.toString() ?: ""
                 for (domain in blockedDomains) {
                     if (text.contains(domain, ignoreCase = true)) {
-                        Log.d(TAG, "BLOCKING: EditText contains blocked domain: $domain")
+                        logDebug(TAG, "BLOCKING: EditText contains blocked domain: $domain")
                         return Pair(true, domain)
                     }
                 }
@@ -351,7 +353,7 @@ class BlockingService : AccessibilityService() {
                 for (domain in blockedDomains) {
                     val domainWithoutSuffix = domain.substringBefore(".")
                     if (text.contains(domainWithoutSuffix, ignoreCase = true)) {
-                        Log.d(
+                        logDebug(
                             TAG,
                             "BLOCKING: WebView contains blocked domain name: $domainWithoutSuffix"
                         )
@@ -371,7 +373,7 @@ class BlockingService : AccessibilityService() {
                     val text = child.text?.toString() ?: ""
                     for (domain in blockedDomains) {
                         if (text.contains(domain, ignoreCase = true)) {
-                            Log.d(TAG, "BLOCKING: Child EditText contains blocked domain: $domain")
+                            logDebug(TAG, "BLOCKING: Child EditText contains blocked domain: $domain")
                             return Pair(true, domain)
                         }
                     }
@@ -426,14 +428,14 @@ class BlockingService : AccessibilityService() {
             foregroundApp?.let { packageName ->
                 // Skip blocking the caller package (screen time/parental control app)
                 if (packageName == callerPackageName) {
-                    Log.d(TAG, "Skipping caller package: $packageName")
+                    logDebug(TAG, "Skipping caller package: $packageName")
                     hideOverlay()
                     return
                 }
 
                 // Check for blocked apps first
                 if (blockedApps.contains(packageName)) {
-                    Log.d(TAG, "Blocked app detected: $packageName")
+                    logDebug(TAG, "Blocked app detected: $packageName")
                     showOverlay()
                     if (useOverlayCountdown) {
                         startBackButtonSequence()
@@ -450,7 +452,7 @@ class BlockingService : AccessibilityService() {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking foreground app", e)
+            logError(TAG, "Error checking foreground app", e)
         }
     }
 
@@ -488,10 +490,10 @@ class BlockingService : AccessibilityService() {
                 startCountdown()
             }
 
-            Log.d(TAG, "Overlay shown")
+            logDebug(TAG, "Overlay shown")
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error showing overlay", e)
+            logError(TAG, "Error showing overlay", e)
         }
     }
 
@@ -522,9 +524,9 @@ class BlockingService : AccessibilityService() {
                 countdownRunnable?.let { handler.removeCallbacks(it) }
                 countdownRunnable = null
 
-                Log.d(TAG, "Overlay hidden")
+                logDebug(TAG, "Overlay hidden")
             } catch (e: Exception) {
-                Log.e(TAG, "Error hiding overlay", e)
+                logError(TAG, "Error hiding overlay", e)
             }
         }
     }
@@ -546,7 +548,7 @@ class BlockingService : AccessibilityService() {
                 } else {
                     hideOverlay()
                     performGlobalAction(GLOBAL_ACTION_HOME)
-                    Log.d(TAG, "Countdown finished, navigated to home")
+                    logDebug(TAG, "Countdown finished, navigated to home")
                 }
             }
         }
@@ -562,15 +564,15 @@ class BlockingService : AccessibilityService() {
                     val success = performGlobalAction(GLOBAL_ACTION_BACK)
                     if (success) {
                         backPressCount++
-                        Log.d(TAG, "Back press $backPressCount/$BACK_PRESS_COUNT performed")
+                        logDebug(TAG, "Back press $backPressCount/$BACK_PRESS_COUNT performed")
                         handler.postDelayed(this, BACK_PRESS_INTERVAL)
                     } else {
-                        Log.w(TAG, "Back press $backPressCount failed, retrying...")
+                        logWarning(TAG, "Back press $backPressCount failed, retrying...")
                         handler.postDelayed(this, BACK_PRESS_INTERVAL)
                     }
                 } else {
                     performGlobalAction(GLOBAL_ACTION_HOME)
-                    Log.d(TAG, "All back presses completed, navigated to home")
+                    logDebug(TAG, "All back presses completed, navigated to home")
                 }
             }
         }
@@ -591,12 +593,12 @@ class BlockingService : AccessibilityService() {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intent)
                 hideOverlay()
-                Log.d(TAG, "Launched caller app: $callerPackageName")
+                logDebug(TAG, "Launched caller app: $callerPackageName")
             } else {
-                Log.e(TAG, "Cannot launch caller app: $callerPackageName")
+                logError(TAG, "Cannot launch caller app: $callerPackageName")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error launching caller app", e)
+            logError(TAG, "Error launching caller app", e)
         }
     }
 
@@ -612,7 +614,7 @@ class BlockingService : AccessibilityService() {
         stopForegroundWithCleanup()
         currentUrl = null
         lastCheckedUrl = null
-        Log.d(TAG, "Unified blocking deactivated")
+        logDebug(TAG, "Unified blocking deactivated")
     }
 
     fun stopBlockingApps() {
@@ -620,7 +622,7 @@ class BlockingService : AccessibilityService() {
         if (blockedDomains.isEmpty() && forwardDnsServer == null) {
             stopBlocking()
         }
-        Log.d(TAG, "App blocking deactivated")
+        logDebug(TAG, "App blocking deactivated")
     }
 
     fun stopBlockingWebsites() {
@@ -628,18 +630,18 @@ class BlockingService : AccessibilityService() {
         if (blockedApps.isEmpty() && forwardDnsServer == null) {
             stopBlocking()
         }
-        Log.d(TAG, "Website blocking deactivated")
+        logDebug(TAG, "Website blocking deactivated")
     }
 
     override fun onDestroy() {
         try {
             unregisterReceiver(stopBlockingReceiver)
         } catch (e: Exception) {
-            Log.e(TAG, "Error unregistering receiver", e)
+            logError(TAG, "Error unregistering receiver", e)
         }
 
         hideOverlay()
-        Log.d(TAG, "Unified blocking service destroyed")
+        logDebug(TAG, "Unified blocking service destroyed")
         super.onDestroy()
     }
 
@@ -675,7 +677,7 @@ class BlockingService : AccessibilityService() {
                 callerPackageName
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting layout resource", e)
+            logError(TAG, "Error getting layout resource", e)
             0
         }
     }

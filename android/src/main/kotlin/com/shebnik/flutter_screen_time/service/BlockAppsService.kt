@@ -9,7 +9,6 @@ import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -18,6 +17,8 @@ import com.shebnik.flutter_screen_time.const.Argument
 import com.shebnik.flutter_screen_time.util.NotificationUtil
 import com.shebnik.flutter_screen_time.util.NotificationUtil.startForegroundWithGroupedNotification
 import com.shebnik.flutter_screen_time.util.NotificationUtil.stopForegroundWithCleanup
+import com.shebnik.flutter_screen_time.util.logDebug
+import com.shebnik.flutter_screen_time.util.logError
 
 class BlockAppsService : Service() {
 
@@ -44,11 +45,11 @@ class BlockAppsService : Service() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         NotificationUtil.createNotificationChannel(this)
-        Log.d(TAG, "Service created")
+        logDebug(TAG, "Service created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "Service started")
+        logDebug(TAG, "Service started")
 
         // Extract data from intent
         intent?.let {
@@ -75,7 +76,7 @@ class BlockAppsService : Service() {
             }
         }
 
-        Log.d(TAG, "Blocked apps: $blockedApps")
+        logDebug(TAG, "Blocked apps: $blockedApps")
 
         // Create and start foreground with notification
         val notification = NotificationUtil.createBlockAppsNotification(
@@ -102,7 +103,7 @@ class BlockAppsService : Service() {
         stopAppMonitoring()
         hideOverlay()
         stopForegroundWithCleanup()
-        Log.d(TAG, "Service destroyed")
+        logDebug(TAG, "Service destroyed")
         super.onDestroy()
     }
 
@@ -149,14 +150,14 @@ class BlockAppsService : Service() {
 
             foregroundApp?.let { packageName ->
                 if (blockedApps.contains(packageName)) {
-                    Log.d(TAG, "Blocked app detected: $packageName")
+                    logDebug(TAG, "Blocked app detected: $packageName")
                     showOverlay()
                 } else {
                     hideOverlay()
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking foreground app", e)
+            logError(TAG, "Error checking foreground app", e)
         }
     }
 
@@ -187,10 +188,10 @@ class BlockAppsService : Service() {
             }
 
             windowManager?.addView(overlayView, params)
-            Log.d(TAG, "Overlay shown")
+            logDebug(TAG, "Overlay shown")
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error showing overlay", e)
+            logError(TAG, "Error showing overlay", e)
         }
     }
 
@@ -199,9 +200,9 @@ class BlockAppsService : Service() {
             try {
                 windowManager?.removeView(view)
                 overlayView = null
-                Log.d(TAG, "Overlay hidden")
+                logDebug(TAG, "Overlay hidden")
             } catch (e: Exception) {
-                Log.e(TAG, "Error hiding overlay", e)
+                logError(TAG, "Error hiding overlay", e)
             }
         }
     }
@@ -217,7 +218,7 @@ class BlockAppsService : Service() {
             @SuppressLint("DiscouragedApi")
             resources.getIdentifier(layoutName, "layout", callerPackageName)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting layout resource", e)
+            logError(TAG, "Error getting layout resource", e)
             0
         }
     }

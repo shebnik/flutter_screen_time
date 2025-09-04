@@ -9,6 +9,11 @@ import com.shebnik.flutter_screen_time.const.MethodName
 import com.shebnik.flutter_screen_time.const.PermissionRequestCode
 import com.shebnik.flutter_screen_time.util.EnumExtension.toCamelCase
 import com.shebnik.flutter_screen_time.util.EnumExtension.toEnumFormat
+import com.shebnik.flutter_screen_time.util.logDebug
+import com.shebnik.flutter_screen_time.util.logError
+import com.shebnik.flutter_screen_time.util.logInfo
+import com.shebnik.flutter_screen_time.util.logSuccess
+import com.shebnik.flutter_screen_time.util.logWarning
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -21,7 +26,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.util.Log
 import android.content.pm.PackageManager
 import com.shebnik.flutter_screen_time.const.AuthorizationStatus
 
@@ -66,6 +70,14 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
     override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
+            MethodName.CONFIGURE -> {
+                val args = call.arguments as? Map<*, *>
+                val logFilePath = args?.get(Argument.LOG_FILE_PATH) as? String
+                
+                val response = FlutterScreenTimeMethod.configure(logFilePath)
+                result.success(response)
+            }
+            
             MethodName.AUTHORIZATION_STATUS -> {
                 val args = call.arguments as Map<*, *>
                 val permissionType = args[Argument.PERMISSION_TYPE] as String
@@ -77,7 +89,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     PermissionType.valueOf(permissionType.toEnumFormat()),
                     isOnlyWebsitesBlocking
                 )
-                Log.i(
+                logInfo(
                     TAG,
                     "Got authorizationStatus for ${permissionType}: ${response.name.toCamelCase()}"
                 )
@@ -204,7 +216,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
                 val forwardDnsServer = args[Argument.FORWARD_DNS_SERVER] as String?
                 if (bundleIds.isNullOrEmpty() && domains.isNullOrEmpty() && forwardDnsServer == null) {
-                    Log.w(TAG, "No bundleIds, domains or dns server provided for blocking.")
+                    logWarning(TAG, "No bundleIds, domains or dns server provided for blocking.")
                     result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebDomains(context))
                     return
                 }
@@ -278,8 +290,9 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 isOnlyWebsitesBlocking
             )
             result.success(isGranted)
-            Log.d(
-                "FlutterScreenTimePlugin", "Permission result for $permissionType: $isGranted"
+            logDebug(
+                "FlutterScreenTimePlugin",
+                "Permission result for $permissionType: $isGranted"
             )
 
             // Clear pending callbacks
@@ -301,7 +314,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
 
                 result.success(isGranted)
-                Log.d(TAG, "Notification permission result: $isGranted")
+                logDebug(TAG, "Notification permission result: $isGranted")
 
                 // Clear pending callbacks
                 pendingResult = null
