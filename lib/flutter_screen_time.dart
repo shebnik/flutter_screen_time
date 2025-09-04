@@ -229,18 +229,15 @@ class FlutterScreenTime {
   ///
   /// [androidOverlayCountdownSeconds] The duration in seconds for the overlay
   /// to be displayed, if [androidUseOverlayCountdown] is true
-  ///
-  /// [androidBlockUninstalling] If true, blocks uninstalling of the current
-  /// app.
-  ///
-  /// [appName] The name of the current app, using to detect when
-  /// [androidBlockUninstalling] is true.
-  ///
+  /// 
   /// [androidUseDnsWebsiteBlocking] If true, enables DNS-based website
   /// blocking.
   ///
   /// [androidForwardDnsServer] The dns server to use for non blocking websites.
   /// Defaults to 8.8.8.8
+  ///
+  /// [androidUninstallPreventionKeywords] List of keywords, on tap of which acs
+  /// will show overlay.
   Future<bool> blockAppsAndWebDomains({
     FamilyActivitySelection? iOSSelection,
     List<String>? androidBundleIds,
@@ -252,10 +249,9 @@ class FlutterScreenTime {
     String? androidLayoutName,
     bool? androidUseOverlayCountdown,
     int? androidOverlayCountdownSeconds,
-    bool? androidBlockUninstalling,
-    String? appName,
     bool? androidUseDnsWebsiteBlocking,
     String? androidForwardDnsServer,
+    List<String>? androidUninstallPreventionKeywords,
   }) {
     return FlutterScreenTimePlatform.instance.blockAppsAndWebDomains(
       iOSSelection: iOSSelection,
@@ -268,10 +264,9 @@ class FlutterScreenTime {
       androidLayoutName: androidLayoutName,
       androidUseOverlayCountdown: androidUseOverlayCountdown,
       androidOverlayCountdownSeconds: androidOverlayCountdownSeconds,
-      androidBlockUninstalling: androidBlockUninstalling,
-      appName: appName,
       androidUseDnsWebsiteBlocking: androidUseDnsWebsiteBlocking,
       androidForwardDnsServer: androidForwardDnsServer,
+      androidUninstallPreventionKeywords: androidUninstallPreventionKeywords,
     );
   }
 

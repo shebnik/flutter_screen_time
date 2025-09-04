@@ -52,16 +52,16 @@ object FlutterScreenTimeMethod {
      */
     fun configure(logFilePath: String?): Map<String, Any> {
         logInfo(TAG, "🔧 Configuring Flutter Screen Time plugin")
-        
+
         val configuredItems = mutableListOf<String>()
-        
+
         // Configure logging if logFilePath is provided
         logFilePath?.let { path ->
             Logger.getInstance().configureLogFile(path)
             configuredItems.add("logging")
             logSuccess(TAG, "Logging configured: $path")
         }
-        
+
         return mapOf(
             "configured" to configuredItems
         )
@@ -177,7 +177,11 @@ object FlutterScreenTimeMethod {
                     )
                     true
                 } catch (exception: Exception) {
-                    logError("requestPermission", "Failed to request app usage permission: ${exception.localizedMessage}", exception)
+                    logError(
+                        "requestPermission",
+                        "Failed to request app usage permission: ${exception.localizedMessage}",
+                        exception
+                    )
                     false
                 }
             }
@@ -218,7 +222,12 @@ object FlutterScreenTimeMethod {
                         true // Notification permission not needed for Android < 13
                     }
                 } catch (exception: Exception) {
-                    exception.localizedMessage?.let { logError("requestPermission NOTIFICATION", it) }
+                    exception.localizedMessage?.let {
+                        logError(
+                            "requestPermission NOTIFICATION",
+                            it
+                        )
+                    }
                     false
                 }
             }
@@ -525,10 +534,9 @@ object FlutterScreenTimeMethod {
         layoutName: String?,
         useOverlayCountdown: Boolean,
         overlayCountdownSeconds: Int,
-        blockUninstalling: Boolean,
-        appName: String?,
         useDNSWebsiteBlocking: Boolean,
         forwardDnsServer: String?,
+        uninstallPreventionKeywords: List<*>?,
     ): Boolean {
         val intent = Intent(context, BlockingService::class.java).apply {
             putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(bundleIds))
@@ -545,11 +553,13 @@ object FlutterScreenTimeMethod {
             putExtra(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
             putExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
 
-            putExtra(Argument.BLOCK_UNINSTALLING, blockUninstalling)
-            putExtra(Argument.APP_NAME, appName)
-
             putExtra(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
             putExtra(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
+
+            putExtra(
+                Argument.UNINSTALL_PREVENTION_KEYWORDS,
+                if (uninstallPreventionKeywords != null) ArrayList(uninstallPreventionKeywords) else null
+            )
         }
 
         try {

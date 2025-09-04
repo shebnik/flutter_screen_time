@@ -165,10 +165,10 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
     String? androidLayoutName,
     bool? androidUseOverlayCountdown,
     int? androidOverlayCountdownSeconds,
-    bool? androidBlockUninstalling,
     String? appName,
     bool? androidUseDnsWebsiteBlocking,
     String? androidForwardDnsServer,
+    List<String>? androidUninstallPreventionKeywords,
   }) async {
     final result =
         await methodChannel.invokeMethod<bool>(
@@ -184,10 +184,10 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
             Argument.blockOverlayLayoutName: androidLayoutName,
             Argument.useOverlayCountdown: androidUseOverlayCountdown,
             Argument.overlayCountdownSeconds: androidOverlayCountdownSeconds,
-            Argument.blockUninstalling: androidBlockUninstalling,
-            Argument.appName: appName,
             Argument.useDnsWebsiteBlocking: androidUseDnsWebsiteBlocking,
             Argument.forwardDnsServer: androidForwardDnsServer,
+            Argument.uninstallPreventionKeywords:
+                androidUninstallPreventionKeywords,
           },
         ) ??
         false;

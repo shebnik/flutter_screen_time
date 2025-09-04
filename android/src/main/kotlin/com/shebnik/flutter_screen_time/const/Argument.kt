@@ -19,8 +19,7 @@ object Argument {
     const val BLOCK_WEBSITES_ONLY_IN_BROWSERS = "blockWebsitesOnlyInBrowsers"
     const val BLOCK_OVERLAY_LAYOUT_PACKAGE = "blockOverlayLayoutPackage"
     const val IS_ONLY_WEBSITES_BLOCKING = "isOnlyWebsitesBlocking"
-    const val BLOCK_UNINSTALLING = "blockUninstalling"
-    const val APP_NAME = "appName"
     const val USE_DNS_WEBSITE_BLOCKING = "useDnsWebsiteBlocking"
     const val FORWARD_DNS_SERVER = "forwardDnsServer"
+    const val UNINSTALL_PREVENTION_KEYWORDS = "uninstallPreventionKeywords"
 }

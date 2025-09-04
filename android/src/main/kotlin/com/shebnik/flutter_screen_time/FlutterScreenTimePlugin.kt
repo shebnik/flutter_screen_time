@@ -73,11 +73,11 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             MethodName.CONFIGURE -> {
                 val args = call.arguments as? Map<*, *>
                 val logFilePath = args?.get(Argument.LOG_FILE_PATH) as? String
-                
+
                 val response = FlutterScreenTimeMethod.configure(logFilePath)
                 result.success(response)
             }
-            
+
             MethodName.AUTHORIZATION_STATUS -> {
                 val args = call.arguments as Map<*, *>
                 val permissionType = args[Argument.PERMISSION_TYPE] as String
@@ -215,8 +215,15 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val bundleIds = args[Argument.BUNDLE_IDS] as List<*>?
                 val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
                 val forwardDnsServer = args[Argument.FORWARD_DNS_SERVER] as String?
-                if (bundleIds.isNullOrEmpty() && domains.isNullOrEmpty() && forwardDnsServer == null) {
-                    logWarning(TAG, "No bundleIds, domains or dns server provided for blocking.")
+
+                val uninstallPreventionKeywords =
+                    args[Argument.UNINSTALL_PREVENTION_KEYWORDS] as List<*>?
+
+                if (bundleIds.isNullOrEmpty() && domains.isNullOrEmpty() && forwardDnsServer == null && uninstallPreventionKeywords.isNullOrEmpty()) {
+                    logWarning(
+                        TAG,
+                        "No bundleIds, domains, dns server or uninstall prevention keywords provided for blocking."
+                    )
                     result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebDomains(context))
                     return
                 }
@@ -229,9 +236,6 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
                 val useOverlayCountdown = args[Argument.USE_OVERLAY_COUNTDOWN] as Boolean? ?: true
                 val overlayCountdownSeconds = args[Argument.OVERLAY_COUNTDOWN_SECONDS] as Int? ?: 10
-
-                val blockUninstalling = args[Argument.BLOCK_UNINSTALLING] as Boolean? ?: false
-                val appName = args[Argument.APP_NAME] as String?
 
                 val useDNSWebsiteBlocking =
                     args[Argument.USE_DNS_WEBSITE_BLOCKING] as Boolean? ?: false
@@ -250,10 +254,9 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     layoutName,
                     useOverlayCountdown,
                     overlayCountdownSeconds,
-                    blockUninstalling,
-                    appName,
                     useDNSWebsiteBlocking,
-                    forwardDnsServer
+                    forwardDnsServer,
+                    uninstallPreventionKeywords,
                 )
 
                 result.success(response)

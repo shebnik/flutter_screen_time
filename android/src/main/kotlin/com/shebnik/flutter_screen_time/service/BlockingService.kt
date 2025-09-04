@@ -11,6 +11,7 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -48,8 +49,6 @@ class BlockingService : AccessibilityService() {
     private var isMonitoring = false
     private val handler = Handler(Looper.getMainLooper())
     private var monitoringRunnable: Runnable? = null
-    private var blockUninstalling: Boolean = false
-    private var appName: String? = null
 
     // Overlay properties
     private var layoutName: String = DEFAULT_LAYOUT_NAME
@@ -66,6 +65,9 @@ class BlockingService : AccessibilityService() {
     // DNS blocking
     private var useDNSWebsiteBlocking: Boolean = false
     private var forwardDnsServer: String? = null
+
+    // Uninstall prevention
+    private var uninstallPreventionKeywords: Set<String>? = null
 
     private lateinit var stopBlockingReceiver: StopBlockingReceiver
 
@@ -130,7 +132,7 @@ class BlockingService : AccessibilityService() {
         startAppMonitoring()
         logDebug(
             TAG,
-            "Unified blocking started - Apps: ${blockedApps.size}, Domains: ${blockedDomains.size}"
+            "Unified blocking started - Apps: ${blockedApps.size}, Domains: ${blockedDomains.size}, Uninstall Prevention: $uninstallPreventionKeywords, DNS Blocking: $useDNSWebsiteBlocking, Forward DNS: $forwardDnsServer"
         )
         return START_STICKY
     }
@@ -151,6 +153,14 @@ class BlockingService : AccessibilityService() {
             Argument.BLOCKED_WEB_DOMAINS, null
         )?.toList() ?: emptyList()
         intentBlockedDomains?.let { editor.putStringSet(Argument.BLOCKED_WEB_DOMAINS, it.toSet()) }
+
+        uninstallPreventionKeywords =
+            intent?.getStringArrayListExtra(Argument.UNINSTALL_PREVENTION_KEYWORDS)?.toSet()
+        if (uninstallPreventionKeywords.isNullOrEmpty()) {
+            editor.remove(Argument.UNINSTALL_PREVENTION_KEYWORDS)
+        } else {
+            editor.putStringSet(Argument.UNINSTALL_PREVENTION_KEYWORDS, uninstallPreventionKeywords)
+        }
 
         // Load caller package name - prefer intent, fallback to prefs
         val intentCallerPackage = intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE)
@@ -230,16 +240,6 @@ class BlockingService : AccessibilityService() {
             editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_NAME, intentValue)
         }
 
-        blockUninstalling = intent?.getBooleanExtra(Argument.BLOCK_UNINSTALLING, false)
-            ?: prefs.getBoolean(Argument.BLOCK_UNINSTALLING, false)
-        editor.putBoolean(Argument.BLOCK_UNINSTALLING, blockUninstalling)
-
-        appName =
-            intent?.getStringExtra(Argument.APP_NAME) ?: prefs.getString(Argument.APP_NAME, null)
-        intent?.getStringExtra(Argument.APP_NAME)?.let { intentValue ->
-            editor.putString(Argument.APP_NAME, intentValue)
-        }
-
         useDNSWebsiteBlocking = intent?.getBooleanExtra(Argument.USE_DNS_WEBSITE_BLOCKING, false)
             ?: prefs.getBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, false)
         editor.putBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
@@ -290,26 +290,29 @@ class BlockingService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         if (!isServiceActive) return
-        if (blockUninstalling && appName != null) {
-            val eventPackageName = event.packageName?.toString() ?: return
-            if (eventPackageName.contains("packageinstaller") || eventPackageName.contains("permissioncontroller")) {
-                val textNodes = rootInActiveWindow.findAccessibilityNodeInfosByText(appName!!)
-                if (textNodes.isNotEmpty()) {
+
+        if (event.packageName?.toString() == callerPackageName) {
+            logDebug(TAG, "Skipping website blocking for caller package: ${event.packageName}")
+            return
+        }
+
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && !uninstallPreventionKeywords.isNullOrEmpty()) {
+            logDebug(TAG, "Clicked view class: ${event.className}, text: ${event.text}")
+            for (keyword in uninstallPreventionKeywords!!) {
+                if (event.text.any { it.toString().contains(keyword, ignoreCase = true) }) {
+                    logDebug(TAG, "Uninstall prevention triggered by keyword: $keyword")
                     showOverlay()
                     if (useOverlayCountdown) {
                         startBackButtonSequence()
                     } else {
                         performGlobalAction(GLOBAL_ACTION_BACK)
                     }
+                    return
                 }
             }
         }
 
         if (blockedDomains.isEmpty() || useDNSWebsiteBlocking) return
-        if (event.packageName?.toString() == callerPackageName) {
-            logDebug(TAG, "Skipping website blocking for caller package: ${event.packageName}")
-            return
-        }
 
         val blockResult = checkContentChangeBlocking(event)
         val shouldBlock = blockResult.first
@@ -373,7 +376,10 @@ class BlockingService : AccessibilityService() {
                     val text = child.text?.toString() ?: ""
                     for (domain in blockedDomains) {
                         if (text.contains(domain, ignoreCase = true)) {
-                            logDebug(TAG, "BLOCKING: Child EditText contains blocked domain: $domain")
+                            logDebug(
+                                TAG,
+                                "BLOCKING: Child EditText contains blocked domain: $domain"
+                            )
                             return Pair(true, domain)
                         }
                     }
@@ -619,7 +625,7 @@ class BlockingService : AccessibilityService() {
 
     fun stopBlockingApps() {
         blockedApps = emptyList()
-        if (blockedDomains.isEmpty() && forwardDnsServer == null) {
+        if (blockedDomains.isEmpty() && forwardDnsServer == null && uninstallPreventionKeywords.isNullOrEmpty()) {
             stopBlocking()
         }
         logDebug(TAG, "App blocking deactivated")
@@ -627,7 +633,7 @@ class BlockingService : AccessibilityService() {
 
     fun stopBlockingWebsites() {
         blockedDomains = emptyList()
-        if (blockedApps.isEmpty() && forwardDnsServer == null) {
+        if (blockedApps.isEmpty() && forwardDnsServer == null && uninstallPreventionKeywords.isNullOrEmpty()) {
             stopBlocking()
         }
         logDebug(TAG, "Website blocking deactivated")
@@ -659,6 +665,7 @@ class BlockingService : AccessibilityService() {
             blockedApps.isNotEmpty() && blockedDomains.isNotEmpty() -> "Monitoring ${blockedApps.size} apps and ${blockedDomains.size} websites"
             blockedApps.isNotEmpty() -> "Monitoring ${blockedApps.size} apps"
             blockedDomains.isNotEmpty() -> "Monitoring ${blockedDomains.size} websites"
+            !uninstallPreventionKeywords.isNullOrEmpty() -> "Uninstall prevention active"
             else -> "Monitoring adult websites"
         }
     }

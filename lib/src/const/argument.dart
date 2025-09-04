@@ -18,10 +18,10 @@ class Argument {
   static const String overlayCountdownSeconds = 'overlayCountdownSeconds';
   static const String blockOverlayLayoutPackage = 'blockOverlayLayoutPackage';
   static const String isOnlyWebsitesBlocking = 'isOnlyWebsitesBlocking';
-  static const String blockUninstalling = 'blockUninstalling';
-  static const String appName = 'appName';
   static const String useDnsWebsiteBlocking = 'useDnsWebsiteBlocking';
   static const String forwardDnsServer = 'forwardDnsServer';
+  static const String uninstallPreventionKeywords =
+      'uninstallPreventionKeywords';
 
   // iOS only
   static const String familyPickerConfiguration = 'familyPickerConfiguration';
