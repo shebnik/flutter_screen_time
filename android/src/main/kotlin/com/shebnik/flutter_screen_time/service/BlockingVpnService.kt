@@ -49,6 +49,13 @@ class BlockingVpnService : VpnService() {
     // DNS connection pool to reuse sockets and reduce battery drain
     private val dnsSocketPool = ConcurrentHashMap<String, DatagramSocket>()
     private var lastDnsQueryTime = 0L
+    
+    // DNS cache to avoid repeated queries (domain -> response + timestamp)
+    private val dnsCache = ConcurrentHashMap<String, Pair<ByteArray, Long>>()
+    private val DNS_CACHE_TTL = 300_000L // 5 minutes cache
+    
+    // Dedicated dispatcher for DNS operations to avoid blocking main coroutines
+    private val dnsDispatcher = Dispatchers.IO.limitedParallelism(8)
 
     override fun onCreate() {
         super.onCreate()
@@ -189,6 +196,9 @@ class BlockingVpnService : VpnService() {
             vpnJob?.cancel()
             vpnInterface?.close()
             vpnInterface = null
+
+            // Clear DNS cache
+            dnsCache.clear()
             
             // Start VPN with new configuration
             startVpn()
@@ -215,10 +225,24 @@ class BlockingVpnService : VpnService() {
             }
             dnsSocketPool.clear()
             
+            // Clear DNS cache
+            dnsCache.clear()
+            
             logDebug(TAG, "VPN stopped")
             stopSelf()
         } catch (e: Exception) {
             logError(TAG, "Error stopping VPN", e)
+        }
+    }
+
+    private fun cleanDnsCache(currentTime: Long) {
+        // Remove expired entries to prevent memory leaks
+        val iterator = dnsCache.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if ((currentTime - entry.value.second) > DNS_CACHE_TTL) {
+                iterator.remove()
+            }
         }
     }
 
@@ -231,9 +255,8 @@ class BlockingVpnService : VpnService() {
             while (isRunning.get() && currentCoroutineContext().isActive) {
                 val length = vpnInput.read(buffer)
                 if (length > 0) {
-                    withContext(Dispatchers.Default) {
-                        processPacket(ByteBuffer.wrap(buffer, 0, length), vpnOutput)
-                    }
+                    // Process packet without context switching for better performance
+                    processPacket(ByteBuffer.wrap(buffer, 0, length), vpnOutput)
                 } else {
                     // Add small delay to prevent excessive CPU usage when no packets
                     delay(1)
@@ -344,7 +367,8 @@ class BlockingVpnService : VpnService() {
     }
 
     private fun forwardDnsQuery(originalPacket: ByteBuffer, vpnOutput: FileOutputStream) {
-        serviceScope.launch {
+        // Use dedicated DNS dispatcher for better performance
+        serviceScope.launch(dnsDispatcher) {
             try {
                 val ipHeaderLength = (originalPacket.get(0).toInt() and 0x0F) * 4
                 val udpHeaderOffset = ipHeaderLength
@@ -362,10 +386,30 @@ class BlockingVpnService : VpnService() {
 
                 val dnsServer = forwardDnsServer ?: DEFAULT_FORWARD_DNS_SERVER
                 
+                // Create cache key from DNS query data
+                val cacheKey = "${dnsServer}:${dnsData.contentHashCode()}"
+                
+                // Check cache first
+                val cachedResponse = dnsCache[cacheKey]
+                val currentTime = System.currentTimeMillis()
+                
+                if (cachedResponse != null && (currentTime - cachedResponse.second) < DNS_CACHE_TTL) {
+                    // Use cached response
+                    val responsePacket = createDnsResponsePacket(
+                        originalPacket,
+                        cachedResponse.first,
+                        cachedResponse.first.size,
+                        sourcePort
+                    )
+                    vpnOutput.write(responsePacket)
+                    return@launch
+                }
+                
                 // Use connection pooling to reduce socket creation overhead
                 val socket = dnsSocketPool.computeIfAbsent(dnsServer) { 
                     DatagramSocket().apply {
-                        soTimeout = 5000 // 5 second timeout
+                        soTimeout = 2000 // Reduced timeout for faster responses
+                        receiveBufferSize = 8192 // Larger buffer for better performance
                     }
                 }
 
@@ -377,26 +421,38 @@ class BlockingVpnService : VpnService() {
                     53
                 )
                 
-                synchronized(socket) {
-                    socket.send(query)
+                val responseData = withTimeout(3000) { // 3 second total timeout
+                    synchronized(socket) {
+                        socket.send(query)
 
-                    // Receive response with timeout
-                    val responseBuffer = ByteArray(512)
-                    val response = DatagramPacket(responseBuffer, responseBuffer.size)
-                    socket.receive(response)
-
-                    // Create IP+UDP response packet
-                    val responsePacket = createDnsResponsePacket(
-                        originalPacket,
-                        response.data,
-                        response.length,
-                        sourcePort
-                    )
-
-                    vpnOutput.write(responsePacket)
+                        // Receive response with timeout
+                        val responseBuffer = ByteArray(1024) // Larger buffer
+                        val response = DatagramPacket(responseBuffer, responseBuffer.size)
+                        socket.receive(response)
+                        
+                        // Cache the response
+                        val responseBytes = response.data.copyOf(response.length)
+                        dnsCache[cacheKey] = Pair(responseBytes, currentTime)
+                        
+                        // Clean old cache entries periodically
+                        if (dnsCache.size > 1000) {
+                            cleanDnsCache(currentTime)
+                        }
+                        
+                        responseBytes
+                    }
                 }
 
-                lastDnsQueryTime = System.currentTimeMillis()
+                // Create IP+UDP response packet
+                val responsePacket = createDnsResponsePacket(
+                    originalPacket,
+                    responseData,
+                    responseData.size,
+                    sourcePort
+                )
+
+                vpnOutput.write(responsePacket)
+                lastDnsQueryTime = currentTime
 
             } catch (e: Exception) {
                 logError(TAG, "Error forwarding DNS query", e)

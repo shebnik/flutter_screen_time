@@ -292,7 +292,6 @@ class BlockingService : AccessibilityService() {
         if (!isServiceActive) return
 
         if (event.packageName?.toString() == callerPackageName) {
-            logDebug(TAG, "Skipping website blocking for caller package: ${event.packageName}")
             return
         }
 
