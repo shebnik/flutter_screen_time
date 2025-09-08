@@ -138,6 +138,7 @@ class _MyAppState extends State<MyApp> {
                 AndroidPermissionType.appUsage,
                 AndroidPermissionType.drawOverlay,
                 AndroidPermissionType.notification,
+                AndroidPermissionType.autostart,
               ].contains(e.key),
             )
             .where((e) => e.value != AuthorizationStatus.approved)) {
@@ -150,6 +151,7 @@ class _MyAppState extends State<MyApp> {
             AndroidPermissionType.appUsage,
             AndroidPermissionType.drawOverlay,
             AndroidPermissionType.notification,
+            AndroidPermissionType.autostart,
           ].contains(e.key),
         )
         .every(

@@ -107,12 +107,13 @@ object NotificationUtil {
         customIconResId: Int?,
         blockedAppsCount: Int,
         blockedDomainsCount: Int,
+        appName: String? = null
     ): Notification {
         val notificationTitle = title ?: "Blocking Active"
         val notificationBody =
             body ?: "Monitoring $blockedAppsCount apps and $blockedDomainsCount domains"
         val iconResId = customIconResId ?: android.R.drawable.ic_lock_idle_lock
-        updateGroupSummary(context, iconResId)
+        updateGroupSummary(context, iconResId, appName)
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(notificationTitle)
@@ -132,9 +133,10 @@ object NotificationUtil {
         title: String,
         body: String,
         customIconResId: Int?,
+        appName: String? = null
     ): Notification {
         val iconResId = customIconResId ?: android.R.drawable.ic_lock_idle_lock
-        updateGroupSummary(context, iconResId)
+        updateGroupSummary(context, iconResId, appName)
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(title)
@@ -149,7 +151,7 @@ object NotificationUtil {
     /**
      * Updates or creates the group summary notification
      */
-    private fun updateGroupSummary(context: Context, groupIconResId: Int? = null) {
+    private fun updateGroupSummary(context: Context, groupIconResId: Int? = null, appName: String? = null) {
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -161,8 +163,7 @@ object NotificationUtil {
 
         // Create summary notification
         val summaryText = when (groupNotifications.size) {
-            0 -> "Screen Time Control active"
-            1 -> "Screen Time Control active"
+            0 -> "Interrupted by OS. Check permissions in ${appName ?: "the"} app, or contact support."
             else -> "${groupNotifications.size} blocking services active"
         }
 
@@ -170,7 +171,7 @@ object NotificationUtil {
         val summaryIconResId = groupIconResId ?: android.R.drawable.ic_menu_info_details
 
         val summaryNotification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle("Screen Time Controls")
+            .setContentTitle("Blocking Services")
             .setContentText(summaryText)
             .setSmallIcon(summaryIconResId)
             .setPriority(NotificationCompat.PRIORITY_LOW)

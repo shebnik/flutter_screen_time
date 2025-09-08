@@ -5,6 +5,7 @@ object MethodName {
 
     const val REQUEST_PERMISSION = "requestPermission"
     const val AUTHORIZATION_STATUS = "authorizationStatus"
+    const val HAS_AUTO_START_PERMISSION = "hasAutoStartPermission"
 
     const val BLOCK_APPS = "blockApps"
     const val BLOCK_WEB_DOMAINS = "blockWebDomains"

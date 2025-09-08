@@ -4,4 +4,5 @@ enum AndroidPermissionType {
   notification,
   accessibilitySettings,
   vpn,
+  autostart,
 }

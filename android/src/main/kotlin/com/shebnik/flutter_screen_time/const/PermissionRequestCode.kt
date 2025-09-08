@@ -7,4 +7,5 @@ object PermissionRequestCode {
     const val REQUEST_CODE_ACCESSIBILITY_WEBSITES_ONLY = 1004
     const val REQUEST_CODE_ACCESSIBILITY_APPS_AND_WEBSITES = 1005
     const val REQUEST_CODE_VPN = 1006
+    const val REQUEST_CODE_AUTOSTART = 1007
 }

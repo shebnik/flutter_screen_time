@@ -3,6 +3,7 @@ class MethodName {
 
   static const requestPermission = 'requestPermission';
   static const authorizationStatus = 'authorizationStatus';
+  static const hasAutoStartPermission = 'hasAutoStartPermission';
 
   static const blockApps = 'blockApps';
   static const blockWebDomains = 'blockWebDomains';

@@ -96,6 +96,12 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 result.success(response.name.toCamelCase())
             }
 
+            MethodName.HAS_AUTO_START_PERMISSION -> {
+                val hasPermission = FlutterScreenTimeMethod.hasAutoStartPermission()
+                logInfo(TAG, "hasAutoStartPermission: $hasPermission")
+                result.success(hasPermission)
+            }
+
             MethodName.REQUEST_PERMISSION -> {
                 val currentActivity = activity
                 if (currentActivity == null) {
@@ -244,6 +250,8 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     return
                 }
 
+                val appName = args[Argument.APP_NAME] as String?
+
                 val response = FlutterScreenTimeMethod.blockAppsAndWebDomains(
                     context,
                     bundleIds?.filterIsInstance<String>() ?: mutableListOf(),
@@ -257,6 +265,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     useDNSWebsiteBlocking,
                     forwardDnsServer,
                     uninstallPreventionKeywords,
+                    appName
                 )
 
                 result.success(response)
@@ -278,6 +287,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_WEBSITES_ONLY -> PermissionType.ACCESSIBILITY_SETTINGS
             PermissionRequestCode.REQUEST_CODE_ACCESSIBILITY_APPS_AND_WEBSITES -> PermissionType.ACCESSIBILITY_SETTINGS
             PermissionRequestCode.REQUEST_CODE_VPN -> PermissionType.VPN
+            PermissionRequestCode.REQUEST_CODE_AUTOSTART -> PermissionType.AUTOSTART
             else -> return false
         }
 

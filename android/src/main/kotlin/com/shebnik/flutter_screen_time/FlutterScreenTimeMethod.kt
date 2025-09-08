@@ -5,6 +5,7 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.app.AppOpsManager
 import android.app.ForegroundServiceStartNotAllowedException
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -156,6 +157,12 @@ object FlutterScreenTimeMethod {
                     AuthorizationStatus.NOT_DETERMINED // Permission not yet granted
                 }
             }
+
+            PermissionType.AUTOSTART -> {
+                // For autostart, we can't reliably check if it's enabled
+                // Return NOT_DETERMINED to prompt user to check manually
+                return AuthorizationStatus.APPROVED
+            }
         }
     }
 
@@ -270,6 +277,18 @@ object FlutterScreenTimeMethod {
                     false
                 }
             }
+
+            PermissionType.AUTOSTART -> {
+                try {
+                    requestAutoStartPermission(activity)
+                    true
+                } catch (e: Exception) {
+                    e.localizedMessage?.let {
+                        logError("requestPermission AUTOSTART", it)
+                    }
+                    true
+                }
+            }
         }
     }
 
@@ -277,7 +296,119 @@ object FlutterScreenTimeMethod {
         context: Context, type: PermissionType, isOnlyWebsitesBlocking: Boolean
     ): Boolean {
         val status = authorizationStatus(context, type, isOnlyWebsitesBlocking)
-        return status == AuthorizationStatus.APPROVED
+        return when (type) {
+            PermissionType.AUTOSTART -> {
+                // For autostart, we can't determine the actual status
+                // Return true to indicate the user was shown the settings
+                true
+            }
+            else -> status == AuthorizationStatus.APPROVED
+        }
+    }
+
+    private fun requestAutoStartPermission(activity: Activity): Boolean {
+        try {
+            val intent = Intent()
+            val manufacturer = Build.MANUFACTURER.lowercase()
+            
+            when (manufacturer) {
+                "xiaomi", "poco", "redmi" -> {
+                    intent.component = ComponentName(
+                        "com.miui.securitycenter",
+                        "com.miui.permcenter.autostart.AutoStartManagementActivity"
+                    )
+                }
+                "letv" -> {
+                    intent.component = ComponentName(
+                        "com.letv.android.letvsafe",
+                        "com.letv.android.letvsafe.AutobootManageActivity"
+                    )
+                }
+                "oppo" -> {
+                    intent.component = ComponentName(
+                        "com.coloros.safecenter",
+                        "com.coloros.safecenter.permission.startup.StartupAppListActivity"
+                    )
+                }
+                "vivo" -> {
+                    intent.component = ComponentName(
+                        "com.vivo.permissionmanager",
+                        "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"
+                    )
+                }
+                "honor" -> {
+                    intent.component = ComponentName(
+                        "com.huawei.systemmanager",
+                        "com.huawei.systemmanager.optimize.process.ProtectActivity"
+                    )
+                }
+                "huawei" -> {
+                    intent.component = ComponentName(
+                        "com.huawei.systemmanager",
+                        "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"
+                    )
+                }
+                "samsung" -> {
+                    intent.component = ComponentName(
+                        "com.samsung.android.lool",
+                        "com.samsung.android.sm.battery.ui.BatteryActivity"
+                    )
+                }
+                "oneplus" -> {
+                    intent.component = ComponentName(
+                        "com.oneplus.security",
+                        "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity"
+                    )
+                }
+                "nokia" -> {
+                    intent.component = ComponentName(
+                        "com.evenwell.powersaving.g3",
+                        "com.evenwell.powersaving.g3.exception.PowerSaverExceptionActivity"
+                    )
+                }
+                "asus" -> {
+                    intent.component = ComponentName(
+                        "com.asus.mobilemanager",
+                        "com.asus.mobilemanager.autostart.AutoStartActivity"
+                    )
+                }
+                "realme" -> {
+                    intent.action = Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+                }
+                else -> {
+                    // Fallback to battery optimization settings
+                    intent.action = Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+                }
+            }
+
+            val packageManager = activity.packageManager
+            val resolveInfos = packageManager.queryIntentActivities(
+                intent,
+                PackageManager.MATCH_DEFAULT_ONLY
+            )
+            
+            if (resolveInfos.isNotEmpty()) {
+                activity.startActivityForResult(intent, PermissionRequestCode.REQUEST_CODE_AUTOSTART)
+                logInfo(TAG, "Auto-start permission intent launched for $manufacturer")
+                return true
+            } else {
+                logWarning(TAG, "No auto-start settings found for $manufacturer")
+                return true
+            }
+        } catch (e: Exception) {
+            logError(TAG, "Error requesting auto-start permission", e)
+            return true
+        }
+    }
+
+    fun hasAutoStartPermission(): Boolean {
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        return when (manufacturer) {
+            "xiaomi", "poco", "redmi", "letv", "oppo", "vivo", 
+            "honor", "huawei", "samsung", "oneplus", "nokia", 
+            "asus", "realme" -> true
+            else -> false
+        }
     }
 
     fun installedApps(
@@ -537,6 +668,7 @@ object FlutterScreenTimeMethod {
         useDNSWebsiteBlocking: Boolean,
         forwardDnsServer: String?,
         uninstallPreventionKeywords: List<*>?,
+        appName: String? = null
     ): Boolean {
         val intent = Intent(context, BlockingService::class.java).apply {
             putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(bundleIds))
@@ -560,6 +692,10 @@ object FlutterScreenTimeMethod {
                 Argument.UNINSTALL_PREVENTION_KEYWORDS,
                 if (uninstallPreventionKeywords != null) ArrayList(uninstallPreventionKeywords) else null
             )
+
+            if (appName != null) {
+                putExtra(Argument.APP_NAME, appName)
+            }
         }
 
         try {

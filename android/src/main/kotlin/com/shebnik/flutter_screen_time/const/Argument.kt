@@ -22,4 +22,5 @@ object Argument {
     const val USE_DNS_WEBSITE_BLOCKING = "useDnsWebsiteBlocking"
     const val FORWARD_DNS_SERVER = "forwardDnsServer"
     const val UNINSTALL_PREVENTION_KEYWORDS = "uninstallPreventionKeywords"
+    const val APP_NAME = "appName"
 }

@@ -117,7 +117,8 @@ class BlockingVpnService : VpnService() {
         val customIconResId = iconName?.let {
             NotificationUtil.getIconResource(this, it, packageName)
         }
-        val notification = createVpnNotification(customIconResId)
+        val appName = intent?.getStringExtra(Argument.APP_NAME)
+        val notification = createVpnNotification(customIconResId, appName)
         startForegroundWithGroupedNotification(
             NotificationUtil.VPN_NOTIFICATION_ID, notification
         )
@@ -134,7 +135,7 @@ class BlockingVpnService : VpnService() {
         return START_STICKY
     }
 
-    private fun createVpnNotification(customIconResId: Int?): Notification {
+    private fun createVpnNotification(customIconResId: Int?, appName: String?): Notification {
         val notificationTitle = "Website Blocking Active"
         var notificationBody = ""
         if (blockedDomains.isNotEmpty()) {
@@ -154,6 +155,7 @@ class BlockingVpnService : VpnService() {
             notificationTitle,
             notificationBody,
             customIconResId,
+            appName
         )
     }
 
@@ -455,7 +457,7 @@ class BlockingVpnService : VpnService() {
                 lastDnsQueryTime = currentTime
 
             } catch (e: Exception) {
-                logError(TAG, "Error forwarding DNS query", e)
+                // logError(TAG, "Error forwarding DNS query", e)
                 // Remove faulty socket from pool
                 dnsSocketPool.remove(forwardDnsServer ?: DEFAULT_FORWARD_DNS_SERVER)?.close()
             }

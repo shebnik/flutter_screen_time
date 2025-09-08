@@ -22,6 +22,7 @@ class Argument {
   static const String forwardDnsServer = 'forwardDnsServer';
   static const String uninstallPreventionKeywords =
       'uninstallPreventionKeywords';
+  static const String appName = 'appName';
 
   // iOS only
   static const String familyPickerConfiguration = 'familyPickerConfiguration';

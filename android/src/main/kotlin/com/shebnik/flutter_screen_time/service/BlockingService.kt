@@ -49,6 +49,7 @@ class BlockingService : AccessibilityService() {
     private var isMonitoring = false
     private val handler = Handler(Looper.getMainLooper())
     private var monitoringRunnable: Runnable? = null
+    private var appName: String? = null
 
     // Overlay properties
     private var layoutName: String = DEFAULT_LAYOUT_NAME
@@ -123,6 +124,7 @@ class BlockingService : AccessibilityService() {
             customIconResId = customIconResId,
             blockedAppsCount = blockedApps.size,
             blockedDomainsCount = blockedDomains.size,
+            appName = appName
         )
         startForegroundWithGroupedNotification(
             NotificationUtil.BLOCKING_NOTIFICATION_ID,
@@ -240,6 +242,13 @@ class BlockingService : AccessibilityService() {
             editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_NAME, intentValue)
         }
 
+        appName = intent?.getStringExtra(Argument.APP_NAME)
+        if (appName != null) {
+            editor.putString(Argument.APP_NAME, appName)
+        } else {
+            editor.remove(Argument.APP_NAME)
+        }
+
         useDNSWebsiteBlocking = intent?.getBooleanExtra(Argument.USE_DNS_WEBSITE_BLOCKING, false)
             ?: prefs.getBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, false)
         editor.putBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
@@ -258,6 +267,7 @@ class BlockingService : AccessibilityService() {
                     putStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS, ArrayList(blockedDomains))
                     putExtra(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
                     putExtra(Argument.NOTIFICATION_ICON, customIconName)
+                    putExtra(Argument.APP_NAME, appName)
                 }
                 try {
                     startForegroundService(intent)

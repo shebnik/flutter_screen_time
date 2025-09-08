@@ -84,6 +84,14 @@ class FlutterScreenTime {
     );
   }
 
+  /// Checks if the current device manufacturer supports auto-start permissions.
+  ///
+  /// Returns true if the device manufacturer is supported,
+  /// false otherwise.
+  Future<bool> hasAutoStartPermission() {
+    return FlutterScreenTimePlatform.instance.hasAutoStartPermission();
+  }
+
   /// Block specific apps indefinitely.
   ///
   /// On iOS [iOSSelection] is family activity selection containing encoded
@@ -229,7 +237,7 @@ class FlutterScreenTime {
   ///
   /// [androidOverlayCountdownSeconds] The duration in seconds for the overlay
   /// to be displayed, if [androidUseOverlayCountdown] is true
-  /// 
+  ///
   /// [androidUseDnsWebsiteBlocking] If true, enables DNS-based website
   /// blocking.
   ///
@@ -238,6 +246,9 @@ class FlutterScreenTime {
   ///
   /// [androidUninstallPreventionKeywords] List of keywords, on tap of which acs
   /// will show overlay.
+  ///
+  /// [appName] is used in the notification to refer to your app. If not
+  /// provided, it defaults to "the" app.
   Future<bool> blockAppsAndWebDomains({
     FamilyActivitySelection? iOSSelection,
     List<String>? androidBundleIds,
@@ -252,6 +263,7 @@ class FlutterScreenTime {
     bool? androidUseDnsWebsiteBlocking,
     String? androidForwardDnsServer,
     List<String>? androidUninstallPreventionKeywords,
+    String? appName,
   }) {
     return FlutterScreenTimePlatform.instance.blockAppsAndWebDomains(
       iOSSelection: iOSSelection,
@@ -267,6 +279,7 @@ class FlutterScreenTime {
       androidUseDnsWebsiteBlocking: androidUseDnsWebsiteBlocking,
       androidForwardDnsServer: androidForwardDnsServer,
       androidUninstallPreventionKeywords: androidUninstallPreventionKeywords,
+      appName: appName,
     );
   }
 

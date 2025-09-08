@@ -35,6 +35,10 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
     'authorizationStatus() has not been implemented.',
   );
 
+  Future<bool> hasAutoStartPermission() => throw UnimplementedError(
+    'hasAutoStartPermission() has not been implemented.',
+  );
+
   Future<bool> blockApps({
     FamilyActivitySelection? iOSSelection,
     List<String>? androidBundleIds,
@@ -121,6 +125,7 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
     bool? androidUseDnsWebsiteBlocking,
     String? androidForwardDnsServer,
     List<String>? androidUninstallPreventionKeywords,
+    String? appName,
   }) => throw UnimplementedError(
     'blockAppsAndWebDomains() has not been implemented.',
   );

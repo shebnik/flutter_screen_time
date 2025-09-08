@@ -70,6 +70,14 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
   }
 
   @override
+  Future<bool> hasAutoStartPermission() async {
+    return await methodChannel.invokeMethod<bool>(
+          MethodName.hasAutoStartPermission,
+        ) ??
+        false;
+  }
+
+  @override
   Future<bool> blockApps({
     FamilyActivitySelection? iOSSelection,
     List<String>? androidBundleIds,
@@ -165,10 +173,10 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
     String? androidLayoutName,
     bool? androidUseOverlayCountdown,
     int? androidOverlayCountdownSeconds,
-    String? appName,
     bool? androidUseDnsWebsiteBlocking,
     String? androidForwardDnsServer,
     List<String>? androidUninstallPreventionKeywords,
+    String? appName,
   }) async {
     final result =
         await methodChannel.invokeMethod<bool>(
@@ -188,6 +196,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
             Argument.forwardDnsServer: androidForwardDnsServer,
             Argument.uninstallPreventionKeywords:
                 androidUninstallPreventionKeywords,
+            Argument.appName: appName,
           },
         ) ??
         false;
