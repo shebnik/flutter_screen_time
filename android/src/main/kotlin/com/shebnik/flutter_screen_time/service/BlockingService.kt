@@ -4,14 +4,12 @@ import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
-import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -20,7 +18,6 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
 import android.widget.TextView
-import com.shebnik.flutter_screen_time.FlutterScreenTimeMethod
 import com.shebnik.flutter_screen_time.const.Argument
 import com.shebnik.flutter_screen_time.receiver.StopBlockingReceiver
 import com.shebnik.flutter_screen_time.util.NotificationUtil
@@ -62,10 +59,6 @@ class BlockingService : AccessibilityService() {
     private var backPressRunnable: Runnable? = null
     private var currentCountdown = 0
     private var backPressCount = 0
-
-    // DNS blocking
-    private var useDNSWebsiteBlocking: Boolean = false
-    private var forwardDnsServer: String? = null
 
     // Uninstall prevention
     private var uninstallPreventionKeywords: Set<String>? = null
@@ -112,8 +105,8 @@ class BlockingService : AccessibilityService() {
 
         val prefs = this.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
-        // Load configuration - prioritize prefs over intent if null
-        loadConfiguration(intent, prefs)
+        // Load configuration from SharedPreferences
+        loadConfiguration(prefs)
 
         isServiceActive = true
 
@@ -134,163 +127,43 @@ class BlockingService : AccessibilityService() {
         startAppMonitoring()
         logDebug(
             TAG,
-            "Unified blocking started - Apps: ${blockedApps.size}, Domains: ${blockedDomains.size}, Uninstall Prevention: $uninstallPreventionKeywords, DNS Blocking: $useDNSWebsiteBlocking, Forward DNS: $forwardDnsServer"
+            "Unified blocking started - Apps: ${blockedApps.size}, Domains: ${blockedDomains.size}, Uninstall Prevention: $uninstallPreventionKeywords"
         )
         return START_STICKY
     }
 
-    private fun loadConfiguration(intent: Intent?, prefs: android.content.SharedPreferences) {
-        val editor = prefs.edit()
+    private fun loadConfiguration(prefs: android.content.SharedPreferences) {
+        // Load all configuration from SharedPreferences
+        blockedApps = prefs.getStringSet(Argument.BUNDLE_IDS, null)?.toList() ?: emptyList()
 
-        // Load blocked apps - prefer intent, fallback to prefs
-        val intentBlockedApps = intent?.getStringArrayListExtra(Argument.BUNDLE_IDS)
-        blockedApps = intentBlockedApps ?: prefs.getStringSet(
-            Argument.BUNDLE_IDS, null
-        )?.toList() ?: emptyList()
-        intentBlockedApps?.let { editor.putStringSet(Argument.BUNDLE_IDS, it.toSet()) }
+        val useDnsWebsiteBlocking =
+            prefs.getBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, true)
 
-        // Load blocked domains - prefer intent, fallback to prefs
-        val intentBlockedDomains = intent?.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS)
-        blockedDomains = intentBlockedDomains ?: prefs.getStringSet(
-            Argument.BLOCKED_WEB_DOMAINS, null
-        )?.toList() ?: emptyList()
-        intentBlockedDomains?.let { editor.putStringSet(Argument.BLOCKED_WEB_DOMAINS, it.toSet()) }
-
-        uninstallPreventionKeywords =
-            intent?.getStringArrayListExtra(Argument.UNINSTALL_PREVENTION_KEYWORDS)?.toSet()
-        if (uninstallPreventionKeywords.isNullOrEmpty()) {
-            editor.remove(Argument.UNINSTALL_PREVENTION_KEYWORDS)
-        } else {
-            editor.putStringSet(Argument.UNINSTALL_PREVENTION_KEYWORDS, uninstallPreventionKeywords)
+        if (!useDnsWebsiteBlocking) {
+            blockedDomains = prefs.getStringSet(Argument.BLOCKED_WEB_DOMAINS, null)?.toList() ?: emptyList()
         }
 
-        // Load caller package name - prefer intent, fallback to prefs
-        val intentCallerPackage = intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE)
-        callerPackageName = intentCallerPackage ?: prefs.getString(
-            Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, null
-        ) ?: packageName
-        intentCallerPackage?.let { editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, it) }
+        uninstallPreventionKeywords = prefs.getStringSet(Argument.UNINSTALL_PREVENTION_KEYWORDS, null)
 
-        // Load notification title - prefer intent, fallback to prefs, then default
-        val intentNotificationTitle = intent?.getStringExtra(Argument.NOTIFICATION_TITLE)
-        notificationTitle = intentNotificationTitle ?: prefs.getString(
-            Argument.NOTIFICATION_TITLE, null
-        ) ?: getDefaultNotificationTitle()
-        intentNotificationTitle?.let { editor.putString(Argument.NOTIFICATION_TITLE, it) }
+        callerPackageName = prefs.getString(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, null) ?: packageName
 
-        // Load notification body - prefer intent, fallback to prefs, then default
-        notificationBody = intent?.getStringExtra(Argument.NOTIFICATION_BODY) ?: prefs.getString(
-            Argument.NOTIFICATION_BODY, null
-        ) ?: getDefaultNotificationBody()
-        intent?.getStringExtra(Argument.NOTIFICATION_BODY)?.let { intentValue ->
-            editor.putString(Argument.NOTIFICATION_BODY, intentValue)
-        }
+        notificationTitle = prefs.getString(Argument.NOTIFICATION_TITLE, null) ?: getDefaultNotificationTitle()
 
-        // Load custom icon - prefer intent, fallback to prefs
-        val customIconName = intent?.getStringExtra(Argument.NOTIFICATION_ICON) ?: prefs.getString(
-            Argument.NOTIFICATION_ICON, null
-        )
-        intent?.getStringExtra(Argument.NOTIFICATION_ICON)?.let { intentValue ->
-            editor.putString(Argument.NOTIFICATION_ICON, intentValue)
-        }
+        notificationBody = prefs.getString(Argument.NOTIFICATION_BODY, null) ?: getDefaultNotificationBody()
+
+        val customIconName = prefs.getString(Argument.NOTIFICATION_ICON, null)
         customIconResId = if (customIconName != null) {
             NotificationUtil.getIconResource(this, customIconName, callerPackageName)
         } else null
 
-        // Load overlay countdown settings - prefer intent, fallback to prefs
-        useOverlayCountdown = when {
-            intent?.hasExtra(Argument.USE_OVERLAY_COUNTDOWN) == true -> intent.getBooleanExtra(
-                Argument.USE_OVERLAY_COUNTDOWN,
-                true
-            )
+        useOverlayCountdown = prefs.getBoolean(Argument.USE_OVERLAY_COUNTDOWN, true)
 
-            prefs.contains(Argument.USE_OVERLAY_COUNTDOWN) -> prefs.getBoolean(
-                Argument.USE_OVERLAY_COUNTDOWN,
-                true
-            )
+        overlayCountdownSeconds = prefs.getInt(Argument.OVERLAY_COUNTDOWN_SECONDS, 10)
 
-            else -> true
-        }
+        layoutName = prefs.getString(Argument.BLOCK_OVERLAY_LAYOUT_NAME, null)
+            ?: if (useOverlayCountdown) DEFAULT_COUNT_LAYOUT_NAME else DEFAULT_LAYOUT_NAME
 
-        if (intent?.hasExtra(Argument.USE_OVERLAY_COUNTDOWN) == true) {
-            editor.putBoolean(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
-        }
-
-        overlayCountdownSeconds = when {
-            intent?.hasExtra(Argument.OVERLAY_COUNTDOWN_SECONDS) == true -> intent.getIntExtra(
-                Argument.OVERLAY_COUNTDOWN_SECONDS,
-                10
-            )
-
-            prefs.contains(Argument.OVERLAY_COUNTDOWN_SECONDS) -> prefs.getInt(
-                Argument.OVERLAY_COUNTDOWN_SECONDS,
-                10
-            )
-
-            else -> 10
-        }
-
-        if (intent?.hasExtra(Argument.OVERLAY_COUNTDOWN_SECONDS) == true) {
-            editor.putInt(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
-        }
-
-        // Load layout name - prefer intent, fallback to prefs, then default
-        layoutName = intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME) ?: prefs.getString(
-            Argument.BLOCK_OVERLAY_LAYOUT_NAME, null
-        ) ?: if (useOverlayCountdown) DEFAULT_COUNT_LAYOUT_NAME else DEFAULT_LAYOUT_NAME
-        intent?.getStringExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME)?.let { intentValue ->
-            editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_NAME, intentValue)
-        }
-
-        appName = intent?.getStringExtra(Argument.APP_NAME)
-        if (appName != null) {
-            editor.putString(Argument.APP_NAME, appName)
-        } else {
-            editor.remove(Argument.APP_NAME)
-        }
-
-        useDNSWebsiteBlocking = intent?.getBooleanExtra(Argument.USE_DNS_WEBSITE_BLOCKING, false)
-            ?: prefs.getBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, false)
-        editor.putBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
-        if (useDNSWebsiteBlocking) {
-            forwardDnsServer = intent?.getStringExtra(Argument.FORWARD_DNS_SERVER)
-            if (forwardDnsServer == null) editor.remove(Argument.FORWARD_DNS_SERVER)
-            else editor.putString(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
-
-            logDebug(TAG, "Starting VPN for DNS website blocking")
-            if (blockedDomains.isEmpty() && forwardDnsServer == null) {
-                logDebug(TAG, "No blocked domains or DNS server provided, skipping VPN start")
-                stopVpnService()
-            } else {
-                logDebug(TAG, "Starting VPN service with ${blockedDomains.size} blocked domains")
-                val intent = Intent(this, BlockingVpnService::class.java).apply {
-                    putStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS, ArrayList(blockedDomains))
-                    putExtra(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
-                    putExtra(Argument.NOTIFICATION_ICON, customIconName)
-                    putExtra(Argument.APP_NAME, appName)
-                }
-                try {
-                    startForegroundService(intent)
-                    logDebug(TAG, "VPN service started, forward DNS: $forwardDnsServer")
-                } catch (e: Exception) {
-                    logError(TAG, "Error starting VPN service", e)
-                }
-            }
-        }
-
-        editor.apply()
-    }
-
-    fun stopVpnService(): Boolean {
-        return try {
-            val intent = Intent(BlockingVpnService.ACTION_STOP_VPN)
-            sendBroadcast(intent)
-            logDebug(FlutterScreenTimeMethod.TAG, "VPN service stop requested successfully")
-            true
-        } catch (e: Exception) {
-            logError(FlutterScreenTimeMethod.TAG, "Error stopping VPN service", e)
-            false
-        }
+        appName = prefs.getString(Argument.APP_NAME, null)
     }
 
     override fun onInterrupt() {
@@ -321,7 +194,7 @@ class BlockingService : AccessibilityService() {
             }
         }
 
-        if (blockedDomains.isEmpty() || useDNSWebsiteBlocking) return
+        if (blockedDomains.isEmpty()) return
 
         val blockResult = checkContentChangeBlocking(event)
         val shouldBlock = blockResult.first
@@ -621,7 +494,9 @@ class BlockingService : AccessibilityService() {
         isServiceActive = false
         stopAppMonitoring()
         hideOverlay()
-        stopVpnService()
+
+        // Note: VPN service is now managed separately from FlutterScreenTimeMethod
+        // No need to stop VPN from AccessibilityService
 
         backPressRunnable?.let { handler.removeCallbacks(it) }
         backPressRunnable = null
@@ -634,7 +509,7 @@ class BlockingService : AccessibilityService() {
 
     fun stopBlockingApps() {
         blockedApps = emptyList()
-        if (blockedDomains.isEmpty() && forwardDnsServer == null && uninstallPreventionKeywords.isNullOrEmpty()) {
+        if (blockedDomains.isEmpty() && uninstallPreventionKeywords.isNullOrEmpty()) {
             stopBlocking()
         }
         logDebug(TAG, "App blocking deactivated")
@@ -642,7 +517,7 @@ class BlockingService : AccessibilityService() {
 
     fun stopBlockingWebsites() {
         blockedDomains = emptyList()
-        if (blockedApps.isEmpty() && forwardDnsServer == null && uninstallPreventionKeywords.isNullOrEmpty()) {
+        if (blockedApps.isEmpty() && uninstallPreventionKeywords.isNullOrEmpty()) {
             stopBlocking()
         }
         logDebug(TAG, "Website blocking deactivated")
@@ -665,17 +540,18 @@ class BlockingService : AccessibilityService() {
             blockedApps.isNotEmpty() && blockedDomains.isNotEmpty() -> "App & Website Blocking Active"
             blockedApps.isNotEmpty() -> "App Blocking Active"
             blockedDomains.isNotEmpty() -> "Website Blocking Active"
-            else -> "Blocking Service Active"
+            !uninstallPreventionKeywords.isNullOrEmpty() -> "Uninstall Prevention Active"
+            else -> "Interrupted by OS."
         }
     }
 
     private fun getDefaultNotificationBody(): String {
         return when {
             blockedApps.isNotEmpty() && blockedDomains.isNotEmpty() -> "Monitoring ${blockedApps.size} apps and ${blockedDomains.size} websites"
-            blockedApps.isNotEmpty() -> "Monitoring ${blockedApps.size} apps"
-            blockedDomains.isNotEmpty() -> "Monitoring ${blockedDomains.size} websites"
-            !uninstallPreventionKeywords.isNullOrEmpty() -> "Uninstall prevention active"
-            else -> "Monitoring adult websites"
+            blockedApps.isNotEmpty() -> "[${blockedApps.size} ${if (blockedApps.size > 1) "apps" else "app"}] Swipe left to hide notification."
+            blockedDomains.isNotEmpty() -> "[${blockedDomains.size} ${if (blockedDomains.size > 1) "websites" else "website"}] Swipe left to hide notification."
+            !uninstallPreventionKeywords.isNullOrEmpty() -> "Swipe left to hide notification."
+            else -> "Check permissions in ${appName ?: "the"} app, or contact support."
         }
     }
 

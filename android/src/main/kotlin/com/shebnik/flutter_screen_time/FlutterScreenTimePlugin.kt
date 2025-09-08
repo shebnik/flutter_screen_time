@@ -221,18 +221,10 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                 val bundleIds = args[Argument.BUNDLE_IDS] as List<*>?
                 val domains = args[Argument.BLOCKED_WEB_DOMAINS] as List<*>?
                 val forwardDnsServer = args[Argument.FORWARD_DNS_SERVER] as String?
+                val forwardDnsServerName = args[Argument.FORWARD_DNS_SERVER_NAME] as String?
 
                 val uninstallPreventionKeywords =
                     args[Argument.UNINSTALL_PREVENTION_KEYWORDS] as List<*>?
-
-                if (bundleIds.isNullOrEmpty() && domains.isNullOrEmpty() && forwardDnsServer == null && uninstallPreventionKeywords.isNullOrEmpty()) {
-                    logWarning(
-                        TAG,
-                        "No bundleIds, domains, dns server or uninstall prevention keywords provided for blocking."
-                    )
-                    result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebDomains(context))
-                    return
-                }
 
                 val layoutName = args[Argument.BLOCK_OVERLAY_LAYOUT_NAME] as String?
 
@@ -264,6 +256,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     overlayCountdownSeconds,
                     useDNSWebsiteBlocking,
                     forwardDnsServer,
+                    forwardDnsServerName,
                     uninstallPreventionKeywords,
                     appName
                 )
@@ -273,7 +266,7 @@ class FlutterScreenTimePlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
 
 
             MethodName.DISABLE_APPS_AND_WEB_DOMAINS_BLOCKING -> {
-                result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebDomains(context))
+                result.success(FlutterScreenTimeMethod.stopBlockingAppsAndWebDomains(context) && FlutterScreenTimeMethod.stopBlockingVpnService(context))
             }
 
             else -> result.notImplemented()

@@ -45,15 +45,15 @@ class BlockingVpnService : VpnService() {
     private var vpnInterface: ParcelFileDescriptor? = null
     private var vpnJob: Job? = null
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
+
     // DNS connection pool to reuse sockets and reduce battery drain
     private val dnsSocketPool = ConcurrentHashMap<String, DatagramSocket>()
     private var lastDnsQueryTime = 0L
-    
+
     // DNS cache to avoid repeated queries (domain -> response + timestamp)
     private val dnsCache = ConcurrentHashMap<String, Pair<ByteArray, Long>>()
     private val DNS_CACHE_TTL = 300_000L // 5 minutes cache
-    
+
     // Dedicated dispatcher for DNS operations to avoid blocking main coroutines
     private val dnsDispatcher = Dispatchers.IO.limitedParallelism(8)
 
@@ -61,7 +61,7 @@ class BlockingVpnService : VpnService() {
         super.onCreate()
         NotificationUtil.createNotificationChannel(this)
         logDebug(TAG, "VPN Service created")
-        
+
         stopVpnReceiver = StopVpnReceiver(this)
 
         val filter = IntentFilter(ACTION_STOP_VPN)
@@ -92,20 +92,10 @@ class BlockingVpnService : VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val blockedDomainsArray =
-            intent?.getStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS) ?: emptyList()
-        val newBlockedDomains = blockedDomainsArray.toSet()
-        
-        val newForwardDnsServer = intent?.getStringExtra(Argument.FORWARD_DNS_SERVER)
-        
-        // Check if configuration has changed
-        val configChanged = this.blockedDomains != newBlockedDomains || 
-                           this.forwardDnsServer != newForwardDnsServer
-        
-        // Update configuration
-        this.blockedDomains = newBlockedDomains
-        this.forwardDnsServer = newForwardDnsServer
-        
+        // Load configuration from SharedPreferences
+        val prefs = getSharedPreferences("blocking_service_config", MODE_PRIVATE)
+        loadConfiguration(prefs)
+
         logDebug(
             TAG, "Loaded ${this.blockedDomains.size} blocked domains: ${
                 this.blockedDomains.joinToString(", ")
@@ -113,21 +103,23 @@ class BlockingVpnService : VpnService() {
         )
         logDebug(TAG, "Using forward DNS server: $forwardDnsServer")
 
-        val iconName = intent?.getStringExtra(Argument.NOTIFICATION_ICON)
-        val customIconResId = iconName?.let {
-            NotificationUtil.getIconResource(this, it, packageName)
+        val customIconResId = prefs.getString(Argument.NOTIFICATION_ICON, null)?.let { iconName ->
+            val packageName =
+                prefs.getString(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, null) ?: packageName
+            NotificationUtil.getIconResource(this, iconName, packageName)
         }
-        val appName = intent?.getStringExtra(Argument.APP_NAME)
-        val notification = createVpnNotification(customIconResId, appName)
+        val appName = prefs.getString(Argument.APP_NAME, null)
+        val forwardDnsServerName = prefs.getString(Argument.FORWARD_DNS_SERVER_NAME, null)
+        val notification = createVpnNotification(customIconResId, appName, forwardDnsServerName)
         startForegroundWithGroupedNotification(
             NotificationUtil.VPN_NOTIFICATION_ID, notification
         )
-        
+
         // If VPN is already running and configuration changed, restart it
-        if (isRunning.get() && configChanged) {
-            logDebug(TAG, "Configuration changed, restarting VPN")
+        if (isRunning.get()) {
+            logDebug(TAG, "VPN already running, restarting with new configuration")
             restartVpn()
-        } else if (!isRunning.get()) {
+        } else {
             // Start VPN if not running
             startVpn()
         }
@@ -135,21 +127,44 @@ class BlockingVpnService : VpnService() {
         return START_STICKY
     }
 
-    private fun createVpnNotification(customIconResId: Int?, appName: String?): Notification {
+    private fun loadConfiguration(prefs: android.content.SharedPreferences) {
+        // Load all configuration from SharedPreferences
+        val newBlockedDomains =
+            prefs.getStringSet(Argument.BLOCKED_WEB_DOMAINS, null)?.toSet() ?: emptySet()
+        val newForwardDnsServer = prefs.getString(Argument.FORWARD_DNS_SERVER, null)
+
+        // Check if configuration has changed
+        val configChanged = this.blockedDomains != newBlockedDomains ||
+                this.forwardDnsServer != newForwardDnsServer
+
+        // Update configuration
+        this.blockedDomains = newBlockedDomains
+        this.forwardDnsServer = newForwardDnsServer
+    }
+
+    private fun createVpnNotification(
+        customIconResId: Int?,
+        appName: String?,
+        forwardDnsServerName: String?
+    ): Notification {
         val notificationTitle = "Website Blocking Active"
         var notificationBody = ""
-        if (blockedDomains.isNotEmpty()) {
-            notificationBody =
-                "Blocking ${blockedDomains.size} website${if (blockedDomains.size > 1) "s" else ""}."
-        }
         if (forwardDnsServer != null) {
-            if (notificationBody.isNotEmpty()) {
-                notificationBody += " "
-            }
-            notificationBody += "Forwarding DNS to ${
-                forwardDnsServer ?: DEFAULT_FORWARD_DNS_SERVER
-            }"
+            notificationBody += "[${forwardDnsServerName ?: forwardDnsServer}"
         }
+        if (blockedDomains.isNotEmpty()) {
+            if (forwardDnsServer != null) {
+                notificationBody += " + "
+            } else {
+                notificationBody += "["
+            }
+            notificationBody +=
+                "${blockedDomains.size} site${if (blockedDomains.size > 1) "s" else ""}]"
+        } else {
+            notificationBody += "]"
+        }
+
+        notificationBody += " Swipe left to hide notification."
         return NotificationUtil.createVpnNotification(
             this,
             notificationTitle,
@@ -201,7 +216,7 @@ class BlockingVpnService : VpnService() {
 
             // Clear DNS cache
             dnsCache.clear()
-            
+
             // Start VPN with new configuration
             startVpn()
         } catch (e: Exception) {
@@ -216,7 +231,7 @@ class BlockingVpnService : VpnService() {
             vpnJob?.cancel()
             vpnInterface?.close()
             vpnInterface = null
-            
+
             // Clean up DNS socket pool to prevent resource leaks
             dnsSocketPool.values.forEach { socket ->
                 try {
@@ -226,10 +241,10 @@ class BlockingVpnService : VpnService() {
                 }
             }
             dnsSocketPool.clear()
-            
+
             // Clear DNS cache
             dnsCache.clear()
-            
+
             logDebug(TAG, "VPN stopped")
             stopSelf()
         } catch (e: Exception) {
@@ -387,14 +402,14 @@ class BlockingVpnService : VpnService() {
                         (originalPacket.get(udpHeaderOffset + 1).toInt() and 0xFF)
 
                 val dnsServer = forwardDnsServer ?: DEFAULT_FORWARD_DNS_SERVER
-                
+
                 // Create cache key from DNS query data
                 val cacheKey = "${dnsServer}:${dnsData.contentHashCode()}"
-                
+
                 // Check cache first
                 val cachedResponse = dnsCache[cacheKey]
                 val currentTime = System.currentTimeMillis()
-                
+
                 if (cachedResponse != null && (currentTime - cachedResponse.second) < DNS_CACHE_TTL) {
                     // Use cached response
                     val responsePacket = createDnsResponsePacket(
@@ -406,9 +421,9 @@ class BlockingVpnService : VpnService() {
                     vpnOutput.write(responsePacket)
                     return@launch
                 }
-                
+
                 // Use connection pooling to reduce socket creation overhead
-                val socket = dnsSocketPool.computeIfAbsent(dnsServer) { 
+                val socket = dnsSocketPool.computeIfAbsent(dnsServer) {
                     DatagramSocket().apply {
                         soTimeout = 2000 // Reduced timeout for faster responses
                         receiveBufferSize = 8192 // Larger buffer for better performance
@@ -422,7 +437,7 @@ class BlockingVpnService : VpnService() {
                     InetAddress.getByName(dnsServer),
                     53
                 )
-                
+
                 val responseData = withTimeout(3000) { // 3 second total timeout
                     synchronized(socket) {
                         socket.send(query)
@@ -431,16 +446,16 @@ class BlockingVpnService : VpnService() {
                         val responseBuffer = ByteArray(1024) // Larger buffer
                         val response = DatagramPacket(responseBuffer, responseBuffer.size)
                         socket.receive(response)
-                        
+
                         // Cache the response
                         val responseBytes = response.data.copyOf(response.length)
                         dnsCache[cacheKey] = Pair(responseBytes, currentTime)
-                        
+
                         // Clean old cache entries periodically
                         if (dnsCache.size > 1000) {
                             cleanDnsCache(currentTime)
                         }
-                        
+
                         responseBytes
                     }
                 }

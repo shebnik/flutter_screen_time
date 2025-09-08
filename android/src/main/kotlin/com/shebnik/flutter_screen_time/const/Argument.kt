@@ -21,6 +21,7 @@ object Argument {
     const val IS_ONLY_WEBSITES_BLOCKING = "isOnlyWebsitesBlocking"
     const val USE_DNS_WEBSITE_BLOCKING = "useDnsWebsiteBlocking"
     const val FORWARD_DNS_SERVER = "forwardDnsServer"
+    const val FORWARD_DNS_SERVER_NAME = "forwardDnsServerName"
     const val UNINSTALL_PREVENTION_KEYWORDS = "uninstallPreventionKeywords"
     const val APP_NAME = "appName"
 }

@@ -667,45 +667,133 @@ object FlutterScreenTimeMethod {
         overlayCountdownSeconds: Int,
         useDNSWebsiteBlocking: Boolean,
         forwardDnsServer: String?,
+        forwardDnsServerName: String?,
         uninstallPreventionKeywords: List<*>?,
         appName: String? = null
     ): Boolean {
-        val intent = Intent(context, BlockingService::class.java).apply {
-            putStringArrayListExtra(Argument.BUNDLE_IDS, ArrayList(bundleIds))
-            putStringArrayListExtra(Argument.BLOCKED_WEB_DOMAINS, ArrayList(domains))
-
-            val callerPackageName = context.packageName
-            putExtra(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, callerPackageName)
-
-            putExtra(Argument.NOTIFICATION_TITLE, notificationTitle)
-            putExtra(Argument.NOTIFICATION_BODY, notificationBody)
-            putExtra(Argument.NOTIFICATION_ICON, notificationIcon)
-
-            putExtra(Argument.BLOCK_OVERLAY_LAYOUT_NAME, layoutName)
-            putExtra(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
-            putExtra(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
-
-            putExtra(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
-            putExtra(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
-
-            putExtra(
-                Argument.UNINSTALL_PREVENTION_KEYWORDS,
-                if (uninstallPreventionKeywords != null) ArrayList(uninstallPreventionKeywords) else null
-            )
-
-            if (appName != null) {
-                putExtra(Argument.APP_NAME, appName)
-            }
+        // Save configuration to SharedPreferences first
+        val prefs = context.getSharedPreferences("blocking_service_config", Context.MODE_PRIVATE)
+        val editor = prefs.edit()
+        
+        // Save all configuration parameters - remove key if empty/null
+        if (bundleIds.isNotEmpty()) {
+            editor.putStringSet(Argument.BUNDLE_IDS, bundleIds.toSet())
+        } else {
+            editor.remove(Argument.BUNDLE_IDS)
         }
-
-        try {
-            context.startForegroundService(intent)
-            logDebug(TAG, "Apps and Domain blocking started successfully")
-            return true
-        } catch (e: Exception) {
-            logError(TAG, "Error starting domain blocking", e)
+        
+        if (domains.isNotEmpty()) {
+            editor.putStringSet(Argument.BLOCKED_WEB_DOMAINS, domains.toSet())
+        } else {
+            editor.remove(Argument.BLOCKED_WEB_DOMAINS)
+        }
+        
+        if (notificationTitle != null) {
+            editor.putString(Argument.NOTIFICATION_TITLE, notificationTitle)
+        } else {
+            editor.remove(Argument.NOTIFICATION_TITLE)
+        }
+        
+        if (notificationBody != null) {
+            editor.putString(Argument.NOTIFICATION_BODY, notificationBody)
+        } else {
+            editor.remove(Argument.NOTIFICATION_BODY)
+        }
+        
+        if (notificationIcon != null) {
+            editor.putString(Argument.NOTIFICATION_ICON, notificationIcon)
+        } else {
+            editor.remove(Argument.NOTIFICATION_ICON)
+        }
+        
+        if (layoutName != null) {
+            editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_NAME, layoutName)
+        } else {
+            editor.remove(Argument.BLOCK_OVERLAY_LAYOUT_NAME)
+        }
+        
+        editor.putBoolean(Argument.USE_OVERLAY_COUNTDOWN, useOverlayCountdown)
+        editor.putInt(Argument.OVERLAY_COUNTDOWN_SECONDS, overlayCountdownSeconds)
+        editor.putBoolean(Argument.USE_DNS_WEBSITE_BLOCKING, useDNSWebsiteBlocking)
+        
+        if (forwardDnsServer != null) {
+            editor.putString(Argument.FORWARD_DNS_SERVER, forwardDnsServer)
+        } else {
+            editor.remove(Argument.FORWARD_DNS_SERVER)
+        }
+        
+        if (forwardDnsServerName != null) {
+            editor.putString(Argument.FORWARD_DNS_SERVER_NAME, forwardDnsServerName)
+        } else {
+            editor.remove(Argument.FORWARD_DNS_SERVER_NAME)
+        }
+        
+        if (appName != null) {
+            editor.putString(Argument.APP_NAME, appName)
+        } else {
+            editor.remove(Argument.APP_NAME)
+        }
+        
+        editor.putString(Argument.BLOCK_OVERLAY_LAYOUT_PACKAGE, context.packageName)
+        
+        if (uninstallPreventionKeywords != null && uninstallPreventionKeywords.isNotEmpty()) {
+            editor.putStringSet(Argument.UNINSTALL_PREVENTION_KEYWORDS, uninstallPreventionKeywords.map { it.toString() }.toSet())
+        } else {
+            editor.remove(Argument.UNINSTALL_PREVENTION_KEYWORDS)
+        }
+        
+        editor.apply()
+        logDebug(TAG, "Configuration saved to SharedPreferences")
+        
+        var success = true
+        
+        // Start VPN service only if DNS website blocking is enabled AND there are domains to block
+        if (useDNSWebsiteBlocking && domains.isNotEmpty()) {
+            logDebug(TAG, "Starting VPN service for DNS website blocking")
+            val vpnIntent = Intent(context, BlockingVpnService::class.java)
+            
+            try {
+                context.startForegroundService(vpnIntent)
+                logDebug(TAG, "VPN service started for DNS blocking")
+            } catch (e: Exception) {
+                logError(TAG, "Error starting VPN service", e)
+                success = false
+            }
+        } else if (useDNSWebsiteBlocking && domains.isEmpty()) {
+            logWarning(TAG, "DNS website blocking enabled but no domains provided - VPN service not started")
+            stopBlockingVpnService(context)
+        }
+        
+        // Start AccessibilityService only if there's work to do
+        val hasAppsToBlock = bundleIds.isNotEmpty()
+        val hasWebsitesToBlock = domains.isNotEmpty() && !useDNSWebsiteBlocking
+        val hasUninstallPrevention = uninstallPreventionKeywords?.isNotEmpty() == true
+        
+        if (hasAppsToBlock || hasWebsitesToBlock || hasUninstallPrevention) {
+            logDebug(TAG, "Starting AccessibilityService for app/website blocking")
+            val intent = Intent(context, BlockingService::class.java)
+            try {
+                context.startForegroundService(intent)
+                logDebug(TAG, "AccessibilityService started")
+            } catch (e: Exception) {
+                logError(TAG, "Error starting AccessibilityService", e)
+                success = false
+            }
+        } else {
+            logDebug(TAG, "AccessibilityService not needed - no apps, websites, or uninstall prevention")
+            stopBlockingAppsAndWebDomains(context)
+        }
+        
+        // Check if any services were started
+        val vpnNeeded = useDNSWebsiteBlocking && domains.isNotEmpty()
+        val accessibilityNeeded = hasAppsToBlock || hasWebsitesToBlock || hasUninstallPrevention
+        
+        if (!vpnNeeded && !accessibilityNeeded) {
+            logWarning(TAG, "No blocking services needed - nothing to start")
             return false
         }
+        
+        return success
     }
 
 
@@ -714,13 +802,21 @@ object FlutterScreenTimeMethod {
             var intent = Intent(BlockingService.ACTION_STOP_BLOCKING)
             context.sendBroadcast(intent)
             logDebug(TAG, "Domain blocking stopped successfully")
+            true
+        } catch (e: Exception) {
+            logError(TAG, "Error stopping domain blocking", e)
+            false
+        }
+    }
 
-            intent = Intent(BlockingVpnService.ACTION_STOP_VPN)
+    fun stopBlockingVpnService(context: Context): Boolean {
+        return try {
+            val intent = Intent(BlockingVpnService.ACTION_STOP_VPN)
             context.sendBroadcast(intent)
             logDebug(TAG, "VPN blocking stopped successfully")
             true
         } catch (e: Exception) {
-            logError(TAG, "Error stopping domain blocking", e)
+            logError(TAG, "Error stopping VPN blocking", e)
             false
         }
     }

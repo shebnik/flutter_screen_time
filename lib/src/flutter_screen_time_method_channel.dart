@@ -175,6 +175,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
     int? androidOverlayCountdownSeconds,
     bool? androidUseDnsWebsiteBlocking,
     String? androidForwardDnsServer,
+    String? androidForwardDnsServerName,
     List<String>? androidUninstallPreventionKeywords,
     String? appName,
   }) async {
@@ -194,6 +195,7 @@ class MethodChannelFlutterScreenTime extends FlutterScreenTimePlatform {
             Argument.overlayCountdownSeconds: androidOverlayCountdownSeconds,
             Argument.useDnsWebsiteBlocking: androidUseDnsWebsiteBlocking,
             Argument.forwardDnsServer: androidForwardDnsServer,
+            Argument.forwardDnsServerName: androidForwardDnsServerName,
             Argument.uninstallPreventionKeywords:
                 androidUninstallPreventionKeywords,
             Argument.appName: appName,

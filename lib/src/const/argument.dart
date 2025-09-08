@@ -20,6 +20,7 @@ class Argument {
   static const String isOnlyWebsitesBlocking = 'isOnlyWebsitesBlocking';
   static const String useDnsWebsiteBlocking = 'useDnsWebsiteBlocking';
   static const String forwardDnsServer = 'forwardDnsServer';
+  static const String forwardDnsServerName = 'forwardDnsServerName';
   static const String uninstallPreventionKeywords =
       'uninstallPreventionKeywords';
   static const String appName = 'appName';

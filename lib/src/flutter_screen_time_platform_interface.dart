@@ -124,6 +124,7 @@ abstract class FlutterScreenTimePlatform extends PlatformInterface {
     int? androidOverlayCountdownSeconds,
     bool? androidUseDnsWebsiteBlocking,
     String? androidForwardDnsServer,
+    String? androidForwardDnsServerName,
     List<String>? androidUninstallPreventionKeywords,
     String? appName,
   }) => throw UnimplementedError(

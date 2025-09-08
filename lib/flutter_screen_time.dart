@@ -244,6 +244,8 @@ class FlutterScreenTime {
   /// [androidForwardDnsServer] The dns server to use for non blocking websites.
   /// Defaults to 8.8.8.8
   ///
+  /// [androidForwardDnsServerName] The dns server name for notification.
+  ///
   /// [androidUninstallPreventionKeywords] List of keywords, on tap of which acs
   /// will show overlay.
   ///
@@ -262,6 +264,7 @@ class FlutterScreenTime {
     int? androidOverlayCountdownSeconds,
     bool? androidUseDnsWebsiteBlocking,
     String? androidForwardDnsServer,
+    String? androidForwardDnsServerName,
     List<String>? androidUninstallPreventionKeywords,
     String? appName,
   }) {
@@ -278,6 +281,7 @@ class FlutterScreenTime {
       androidOverlayCountdownSeconds: androidOverlayCountdownSeconds,
       androidUseDnsWebsiteBlocking: androidUseDnsWebsiteBlocking,
       androidForwardDnsServer: androidForwardDnsServer,
+      androidForwardDnsServerName: androidForwardDnsServerName,
       androidUninstallPreventionKeywords: androidUninstallPreventionKeywords,
       appName: appName,
     );
