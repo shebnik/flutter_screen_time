@@ -162,16 +162,13 @@ object NotificationUtil {
         }
 
         // Create summary notification
-        val summaryText = when (groupNotifications.size) {
-            0 -> "Interrupted by OS. Check permissions in ${appName ?: "the"} app, or contact support."
-            else -> "Blocking active"
-        }
+        val summaryText = "Check permissions in ${appName ?: "the"} app, or contact support."
 
         // Use group icon if provided, otherwise use default
         val summaryIconResId = groupIconResId ?: android.R.drawable.ic_menu_info_details
 
         val summaryNotification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle("Blocking")
+            .setContentTitle("Interrupted by OS.")
             .setContentText(summaryText)
             .setSmallIcon(summaryIconResId)
             .setPriority(NotificationCompat.PRIORITY_LOW)

@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -45,6 +46,8 @@ class BlockingService : AccessibilityService() {
     private var isServiceActive = false
     private var isMonitoring = false
     private val handler = Handler(Looper.getMainLooper())
+    private var backgroundThread: HandlerThread? = null
+    private var backgroundHandler: Handler? = null
     private var monitoringRunnable: Runnable? = null
     private var appName: String? = null
 
@@ -86,6 +89,12 @@ class BlockingService : AccessibilityService() {
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         NotificationUtil.createNotificationChannel(this)
+
+        // Initialize background thread for heavy operations
+        backgroundThread = HandlerThread("BlockingServiceBackground").apply {
+            start()
+        }
+        backgroundHandler = Handler(backgroundThread!!.looper)
 
         stopBlockingReceiver = StopBlockingReceiver(this)
 
@@ -283,7 +292,10 @@ class BlockingService : AccessibilityService() {
         monitoringRunnable = object : Runnable {
             override fun run() {
                 if (isMonitoring) {
-                    checkForegroundApp()
+                    // Move the heavy UsageStatsManager operation to background thread
+                    backgroundHandler?.post {
+                        checkForegroundApp()
+                    }
                     handler.postDelayed(this, MONITORING_INTERVAL)
                 }
             }
@@ -313,34 +325,41 @@ class BlockingService : AccessibilityService() {
                 }
             }
 
-            foregroundApp?.let { packageName ->
-                // Skip blocking the caller package (screen time/parental control app)
-                if (packageName == callerPackageName) {
-                    logDebug(TAG, "Skipping caller package: $packageName")
-                    hideOverlay()
-                    return
-                }
-
-                // Check for blocked apps first
-                if (blockedApps.contains(packageName)) {
-                    logDebug(TAG, "Blocked app detected: $packageName")
-                    showOverlay()
-                    if (useOverlayCountdown) {
-                        startBackButtonSequence()
-                    } else {
-                        performGlobalAction(GLOBAL_ACTION_BACK)
-                    }
-                    return
-                }
-
-                // For website blocking, we only check on navigation events
-                // Don't hide overlay if countdown is active
-                if (!useOverlayCountdown || !isOverlayShowing || countdownRunnable == null) {
-                    hideOverlay()
-                }
+            // Post UI operations back to main thread
+            handler.post {
+                handleForegroundAppResult(foregroundApp)
             }
         } catch (e: Exception) {
             logError(TAG, "Error checking foreground app", e)
+        }
+    }
+
+    private fun handleForegroundAppResult(foregroundApp: String?) {
+        foregroundApp?.let { packageName ->
+            // Skip blocking the caller package (screen time/parental control app)
+            if (packageName == callerPackageName) {
+                logDebug(TAG, "Skipping caller package: $packageName")
+                hideOverlay()
+                return
+            }
+
+            // Check for blocked apps first
+            if (blockedApps.contains(packageName)) {
+                logDebug(TAG, "Blocked app detected: $packageName")
+                showOverlay()
+                if (useOverlayCountdown) {
+                    startBackButtonSequence()
+                } else {
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                }
+                return
+            }
+
+            // For website blocking, we only check on navigation events
+            // Don't hide overlay if countdown is active
+            if (!useOverlayCountdown || !isOverlayShowing || countdownRunnable == null) {
+                hideOverlay()
+            }
         }
     }
 
@@ -529,6 +548,11 @@ class BlockingService : AccessibilityService() {
         } catch (e: Exception) {
             logError(TAG, "Error unregistering receiver", e)
         }
+
+        // Clean up background thread
+        backgroundThread?.quitSafely()
+        backgroundThread = null
+        backgroundHandler = null
 
         hideOverlay()
         logDebug(TAG, "Unified blocking service destroyed")
