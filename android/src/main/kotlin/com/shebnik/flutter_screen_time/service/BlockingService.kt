@@ -20,6 +20,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
 import android.widget.TextView
 import com.shebnik.flutter_screen_time.const.Argument
+import com.shebnik.flutter_screen_time.const.Constants
 import com.shebnik.flutter_screen_time.receiver.StopBlockingReceiver
 import com.shebnik.flutter_screen_time.util.NotificationUtil
 import com.shebnik.flutter_screen_time.util.NotificationUtil.startForegroundWithGroupedNotification
@@ -70,7 +71,7 @@ class BlockingService : AccessibilityService() {
 
     companion object {
         const val TAG = "BlockingService"
-        const val PREFS_NAME = "blocking_service_config"
+        const val PREFS_NAME = Constants.PREFS_NAME
         const val MONITORING_INTERVAL = 1000L
         const val ACTION_STOP_BLOCKING = "com.shebnik.flutter_screen_time.STOP_BLOCKING"
         const val ACTION_STOP_BLOCKING_APPS = "com.shebnik.flutter_screen_time.STOP_BLOCKING_APPS"
@@ -188,7 +189,7 @@ class BlockingService : AccessibilityService() {
         }
 
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && !uninstallPreventionKeywords.isNullOrEmpty()) {
-            logDebug(TAG, "Clicked view class: ${event.className}, text: ${event.text}")
+            // logDebug(TAG, "Clicked view class: ${event.className}, text: ${event.text}")
             for (keyword in uninstallPreventionKeywords!!) {
                 if (event.text.any { it.toString().contains(keyword, ignoreCase = true) }) {
                     logDebug(TAG, "Uninstall prevention triggered by keyword: $keyword")

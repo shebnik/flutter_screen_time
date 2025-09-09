@@ -2,12 +2,17 @@ package com.shebnik.flutter_screen_time.service
 
 import android.annotation.SuppressLint
 import android.app.Notification
+import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.VpnService
+import android.app.AlarmManager
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import com.shebnik.flutter_screen_time.const.Argument
+import com.shebnik.flutter_screen_time.const.Constants
 import com.shebnik.flutter_screen_time.receiver.StopVpnReceiver
 import com.shebnik.flutter_screen_time.util.NotificationUtil
 import com.shebnik.flutter_screen_time.util.NotificationUtil.startForegroundWithGroupedNotification
@@ -39,6 +44,13 @@ class BlockingVpnService : VpnService() {
         private const val VPN_ADDRESS = "10.0.0.2"
         private const val VPN_DNS_ADDRESS = "10.0.0.1" // Our local DNS server address
         private const val DEFAULT_FORWARD_DNS_SERVER = "8.8.8.8" // Real DNS server to forward to
+
+        fun shouldStartVpnService(context: Context): Boolean {
+            val prefs = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            val domains = prefs.getStringSet(Argument.BLOCKED_WEB_DOMAINS, emptySet()) ?: emptySet()
+            val forwardDnsServer = prefs.getString(Argument.FORWARD_DNS_SERVER, null)
+            return domains.isNotEmpty() || forwardDnsServer != null
+        }
     }
 
     private var blockedDomains: Set<String> = emptySet()
@@ -83,17 +95,39 @@ class BlockingVpnService : VpnService() {
         try {
             unregisterReceiver(stopVpnReceiver)
         } catch (e: Exception) {
-            logError(BlockingService.Companion.TAG, "Error unregistering receiver", e)
+            logError(TAG, "Error unregistering receiver", e)
         }
+        
+        // Schedule restart if needed (only in specific cases)
+        if (shouldStartVpnService(this)) {
+            scheduleRestart()
+        }
+        
         stopVpn()
         serviceScope.cancel()
         logDebug(TAG, "VPN Service destroyed")
         super.onDestroy()
     }
 
+    private fun scheduleRestart() {
+        val restartIntent = Intent(this, BlockingVpnService::class.java)
+        val pendingIntent = PendingIntent.getService(
+            this, 0, restartIntent, 
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        alarmManager.setExactAndAllowWhileIdle(
+            AlarmManager.ELAPSED_REALTIME_WAKEUP,
+            SystemClock.elapsedRealtime() + 5000, // 5 second delay
+            pendingIntent
+        )
+        logDebug(TAG, "Scheduled VPN service restart in 5 seconds")
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Load configuration from SharedPreferences
-        val prefs = getSharedPreferences("blocking_service_config", MODE_PRIVATE)
+        val prefs = getSharedPreferences(Constants.PREFS_NAME, MODE_PRIVATE)
         loadConfiguration(prefs)
 
         logDebug(

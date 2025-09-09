@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
 import com.shebnik.flutter_screen_time.const.Argument
+import com.shebnik.flutter_screen_time.const.Constants
 import com.shebnik.flutter_screen_time.const.Field
 import com.shebnik.flutter_screen_time.const.PermissionRequestCode
 import com.shebnik.flutter_screen_time.const.AuthorizationStatus
@@ -672,7 +673,7 @@ object FlutterScreenTimeMethod {
         appName: String? = null
     ): Boolean {
         // Save configuration to SharedPreferences first
-        val prefs = context.getSharedPreferences("blocking_service_config", Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
         val editor = prefs.edit()
         
         // Save all configuration parameters - remove key if empty/null
