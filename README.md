@@ -44,3 +44,25 @@ Or
     </intent-filter>
 </service>
 ```
+
+BlockerVpnService scheduleRestart sends ``BLOCKER_VPN_STOPPED`` event, own app VpnMonitorReceiver implementation
+```xml
+<!-- VPN Monitor Receiver -->
+<receiver
+    android:name=".receiver.VpnMonitorReceiver"
+    android:enabled="true"
+    android:exported="false">
+    <intent-filter>
+        <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
+    </intent-filter>
+    <intent-filter>
+        <action android:name="android.intent.action.PACKAGE_ADDED" />
+        <action android:name="android.intent.action.PACKAGE_REMOVED" />
+        <action android:name="android.intent.action.PACKAGE_REPLACED" />
+        <data android:scheme="package" />
+    </intent-filter>
+    <intent-filter>
+        <action android:name="BLOCKER_VPN_STOPPED" />
+    </intent-filter>
+</receiver>
+```
