@@ -1,5 +1,9 @@
 # flutter_screen_time
 
+# iOS
+
+1. Add entitilement 
+
 
 Add to your manifest ``<application>`` tag whichever you'll use:
 ```xml

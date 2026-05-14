@@ -5,15 +5,15 @@
 Pod::Spec.new do |s|
   s.name             = 'flutter_screen_time'
   s.version          = '0.0.1'
-  s.summary          = 'A new Flutter plugin project.'
+  s.summary          = 'A Flutter plugin for Screen Time API.'
   s.description      = <<-DESC
-A new Flutter plugin project.
+A Flutter plugin that provides access to Screen Time and Family Controls APIs on iOS.
                        DESC
   s.homepage         = 'http://example.com'
-  s.license          = { :file => '../LICENSE' }
+  s.license          = { :type => 'MIT', :file => '../LICENSE' }
   s.author           = { 'Your Company' => 'email@example.com' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*'
+  s.source_files = 'flutter_screen_time/Sources/flutter_screen_time/**/*.swift'
   s.dependency 'Flutter'
   s.platform = :ios, '15.0'
 
@@ -25,5 +25,5 @@ A new Flutter plugin project.
   # required reason APIs, update the PrivacyInfo.xcprivacy file to describe your
   # plugin's privacy impact, and then uncomment this line. For more information,
   # see https://developer.apple.com/documentation/bundleresources/privacy_manifest_files
-  # s.resource_bundles = {'flutter_screen_time_privacy' => ['Resources/PrivacyInfo.xcprivacy']}
+  # s.resource_bundles = {'flutter_screen_time_privacy' => ['flutter_screen_time/Sources/flutter_screen_time/PrivacyInfo.xcprivacy']}
 end
