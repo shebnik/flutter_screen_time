@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screen_time/flutter_screen_time.dart';
+import 'package:flutter_screen_time_example/android_permissions/android_permissions_sheet.dart';
+import 'package:flutter_screen_time_example/android_screen_time_permissions.dart';
 
 void main() {
-  runZonedGuarded(
+  return runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
@@ -36,12 +38,10 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final _flutterScreenTimePlugin = FlutterScreenTime();
 
-  final Map<AndroidPermissionType, AuthorizationStatus>
-  _androidPermissionStatus = Map.fromEntries(
-    AndroidPermissionType.values.map(
-      (type) => MapEntry(type, AuthorizationStatus.notDetermined),
-    ),
-  );
+  Map<AndroidPermissionType, bool>? _androidPermissionStatus;
+  final androidPermissions = AndroidScreenTimePermissions();
+
+  AuthorizationStatus? iOSStatus;
 
   Map<AppCategory, List<InstalledApp>> categorizedApps = {};
   List<AppCategory> categories = [];
@@ -55,36 +55,110 @@ class _MyAppState extends State<MyApp> {
   ];
 
   bool isLoading = true;
+  bool hasValidPermissions = false;
   bool isBlockingApps = false;
   bool isBlockingWebDomains = false;
 
   @override
   void initState() {
     super.initState();
-    load();
+    unawaited(checkAuthorizationStatus());
+  }
+
+  Future<void> checkAuthorizationStatus() async {
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        _androidPermissionStatus = await androidPermissions.checkPermissions();
+        debugPrint('Android permissions status: $_androidPermissionStatus');
+        if (!androidPermissions.hasAllPermissions(_androidPermissionStatus)) {
+          return requestAuthorization();
+        } else {
+          hasValidPermissions = true;
+        }
+      } else {
+        iOSStatus = await _flutterScreenTimePlugin.authorizationStatus();
+        debugPrint('iOS authorization status: $iOSStatus');
+        if (iOSStatus != AuthorizationStatus.approved) {
+          return requestAuthorization();
+        } else {
+          hasValidPermissions = true;
+        }
+      }
+      if (!mounted) return;
+      if (hasValidPermissions) {
+        await load();
+        if (mounted) {
+          setState(() => isLoading = false);
+        }
+      }
+    } catch (e, s) {
+      debugPrintStack(
+        label: 'Failed to check authorization status: $e',
+        stackTrace: s,
+      );
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  Future<void> requestAuthorization() async {
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        _androidPermissionStatus = await requestAndroidPermissions();
+        debugPrint('Android permissions status: $_androidPermissionStatus');
+      } else {
+        final result = await _flutterScreenTimePlugin.requestPermission();
+        iOSStatus = result
+            ? AuthorizationStatus.approved
+            : AuthorizationStatus.denied;
+        debugPrint('iOS authorization status: $iOSStatus');
+      }
+      if (mounted) {
+        if (defaultTargetPlatform == TargetPlatform.iOS &&
+                iOSStatus == AuthorizationStatus.approved ||
+            defaultTargetPlatform == TargetPlatform.android &&
+                androidPermissions.hasAllPermissions(
+                  _androidPermissionStatus,
+                )) {
+          hasValidPermissions = true;
+          await load();
+        }
+      }
+    } catch (e, s) {
+      debugPrintStack(
+        label: 'Failed to request authorization. $e',
+        stackTrace: s,
+      );
+    } finally {
+      debugPrint('requestAuthorization Setting loading to false');
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  Future<Map<AndroidPermissionType, bool>?> requestAndroidPermissions() async {
+    final perms =
+        _androidPermissionStatus ?? await androidPermissions.checkPermissions();
+    if (!mounted) return perms;
+    return showModalBottomSheet<Map<AndroidPermissionType, bool>?>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AndroidPermissionsSheet(
+          permissions: perms,
+        ),
+      ),
+    );
   }
 
   Future<void> load() async {
-    await determinePermissions();
     await loadAppsList();
 
     if (mounted) setState(() => isLoading = false);
-  }
-
-  Future<void> determinePermissions() async {
-    for (final type in AndroidPermissionType.values) {
-      try {
-        _androidPermissionStatus[type] = await _flutterScreenTimePlugin
-            .authorizationStatus(
-              androidPermissionType: type,
-            );
-      } on PlatformException catch (e) {
-        debugPrintStack(
-          label: e.toString(),
-          stackTrace: StackTrace.current,
-        );
-      }
-    }
   }
 
   Future<void> loadAppsList() async {
@@ -102,87 +176,8 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Future<void> requestPermission(AndroidPermissionType type) async {
-    bool result;
-
-    try {
-      result = await _flutterScreenTimePlugin.requestPermission(
-        permissionType: type,
-      );
-    } on PlatformException catch (e) {
-      debugPrintStack(
-        label: e.toString(),
-        stackTrace: StackTrace.current,
-      );
-      return;
-    }
-
-    debugPrint(
-      'Permission for ${type.name} was ${result ? 'granted' : 'denied'}',
-    );
-
-    if (mounted) {
-      setState(() {
-        _androidPermissionStatus[type] = result
-            ? AuthorizationStatus.approved
-            : AuthorizationStatus.denied;
-      });
-    }
-  }
-
-  Future<bool> checkAppBlockingPermissions() async {
-    for (final type
-        in _androidPermissionStatus.entries
-            .where(
-              (e) => [
-                AndroidPermissionType.appUsage,
-                AndroidPermissionType.drawOverlay,
-                AndroidPermissionType.notification,
-                AndroidPermissionType.autostart,
-              ].contains(e.key),
-            )
-            .where((e) => e.value != AuthorizationStatus.approved)) {
-      await requestPermission(type.key);
-    }
-
-    return _androidPermissionStatus.entries
-        .where(
-          (e) => [
-            AndroidPermissionType.appUsage,
-            AndroidPermissionType.drawOverlay,
-            AndroidPermissionType.notification,
-            AndroidPermissionType.autostart,
-          ].contains(e.key),
-        )
-        .every(
-          (e) => e.value == AuthorizationStatus.approved,
-        );
-  }
-
-  Future<bool> checkDomainBlockingPermissions() async {
-    debugPrint('Current permissions: $_androidPermissionStatus');
-    for (final type in _androidPermissionStatus.entries.where(
-      (e) => e.value != AuthorizationStatus.approved,
-    )) {
-      debugPrint('Requesting permission for ${type.key}');
-      await requestPermission(type.key);
-      debugPrint(
-        'Permission for ${type.key.name} is now '
-        '${_androidPermissionStatus[type.key]}',
-      );
-    }
-
-    return _androidPermissionStatus.values.every(
-      (e) => e == AuthorizationStatus.approved,
-    );
-  }
-
   Future<void> blockApps({required bool? value}) async {
     if (value == null) return;
-
-    if (!(await checkAppBlockingPermissions())) {
-      return;
-    }
 
     final bundleIds = selectedApps.values
         .expand((e) => e)
@@ -204,9 +199,6 @@ class _MyAppState extends State<MyApp> {
   Future<void> blockWebDomains({required bool? value}) async {
     if (value == null) return;
 
-    if (!(await checkDomainBlockingPermissions())) {
-      return;
-    }
     if (isBlockingWebDomains) {
       await _flutterScreenTimePlugin.disableWebDomainsBlocking();
     } else {
@@ -233,7 +225,6 @@ class _MyAppState extends State<MyApp> {
                   child: Column(
                     spacing: 16,
                     children: [
-                      _currentPermissionStatus(),
                       _blockApps(),
                       _blockWebsites(),
                     ],
@@ -241,39 +232,6 @@ class _MyAppState extends State<MyApp> {
                 ),
               ),
       ),
-    );
-  }
-
-  Widget _currentPermissionStatus() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Permissions:',
-              style: Theme.of(context).textTheme.headlineLarge,
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: determinePermissions,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ..._androidPermissionStatus.entries.map((entry) {
-          return ListTile(
-            title: Text(entry.key.name),
-            subtitle: Text(entry.value.name),
-            trailing: entry.value != AuthorizationStatus.approved
-                ? ElevatedButton(
-                    onPressed: () => requestPermission(entry.key),
-                    child: const Text('Request'),
-                  )
-                : null,
-          );
-        }),
-      ],
     );
   }
 

@@ -1,9 +1,10 @@
 name: flutter_screen_time_example
 description: "Demonstrates how to use the flutter_screen_time plugin."
 publish_to: 'none'
+version: 0.0.1
 
 environment:
-  sdk: ^3.9.0
+  sdk: ^3.11.5
 
 dependencies:
   cupertino_icons: ^1.0.8
@@ -14,10 +15,10 @@ dependencies:
 
 dev_dependencies:
   flutter_test:
-    sdk: flutter  
+    sdk: flutter
   integration_test:
     sdk: flutter
-  very_good_analysis: ^9.0.0
+  very_good_analysis: ^10.2.0
 
 flutter:
   uses-material-design: true
